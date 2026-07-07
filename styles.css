@@ -710,6 +710,9 @@ h3 {
 }
 
 .skill-grid,
+.social-scene-list,
+.social-npc-grid,
+.inventory-grid,
 .career-grid,
 .achievement-grid,
 .history-list,
@@ -720,6 +723,10 @@ h3 {
 
 .list-item,
 .skill-card,
+.social-scene,
+.npc-card,
+.social-detail-card,
+.inventory-card,
 .career-card,
 .achievement-card,
 .event-card {
@@ -770,6 +777,89 @@ h3 {
 
 .choice-list button:hover {
   border-color: var(--teal);
+}
+
+.social-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 360px;
+  gap: 12px;
+  align-items: start;
+}
+
+.social-scene {
+  width: 100%;
+  display: grid;
+  gap: 5px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.social-scene small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.social-scene.active,
+.npc-card.active {
+  border-color: rgba(50, 182, 166, 0.75);
+  background: rgba(50, 182, 166, 0.1);
+}
+
+.npc-card {
+  cursor: pointer;
+}
+
+.social-npc-grid,
+.inventory-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.social-frame {
+  border-color: rgba(201, 138, 23, 0.55);
+}
+
+.social-fill {
+  background: linear-gradient(90deg, #c98a17, #f0c875);
+  box-shadow: 0 0 14px rgba(201, 138, 23, 0.22);
+}
+
+.social-cost-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.social-reward-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.social-reward-list strong,
+.social-reward-list span {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.social-reward-list strong {
+  color: #f0c875;
+  border-color: rgba(201, 138, 23, 0.35);
+}
+
+.social-action-button {
+  width: 100%;
+  margin-top: 14px;
 }
 
 .segmented {
@@ -1034,6 +1124,7 @@ h3 {
   }
 
   .home-grid,
+  .social-layout,
   .skill-grid,
   .career-grid,
   .achievement-grid,
@@ -1077,6 +1168,9 @@ h3 {
 
   .stat-grid,
   .resource-grid,
+  .social-npc-grid,
+  .inventory-grid,
+  .social-cost-row,
   .nav-list,
   .sidebar-footer {
     grid-template-columns: 1fr;

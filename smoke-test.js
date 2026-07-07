@@ -24,6 +24,18 @@ if (mathAfterTraining <= mathAfterTick) {
 if (state.day <= 1 || state.stats.studyStreak < 2) {
   throw new Error("技能挂机没有推进日期或连续学习统计");
 }
+const energyBeforeSocial = state.attrs.energy;
+const friendshipBefore = getNpcRecord("father").friendship;
+socializeWithNpc("father", false);
+if ((state.inventory["item.family.advice"] || 0) <= 0) {
+  throw new Error("社交没有把固定道具放入背包");
+}
+if (getNpcRecord("father").friendship <= friendshipBefore) {
+  throw new Error("社交没有增加 NPC 友好度");
+}
+if (state.attrs.energy >= energyBeforeSocial) {
+  throw new Error("社交没有消耗精力");
+}
 checkAchievements();
 checkUnlocks(state);
 console.log(JSON.stringify({
@@ -38,6 +50,8 @@ console.log(JSON.stringify({
   mathXpGainedByTrainingTick: mathAfterTick - mathBefore,
   mathXpGainedByTrainingLoop: mathAfterTraining - mathAfterTick,
   studyStreak: state.stats.studyStreak,
+  fatherFriendship: getNpcRecord("father").friendship,
+  inventoryItems: Object.keys(state.inventory).length,
   lastSettlement: state.lastSettlement,
   logs: state.logs.length
 }, null, 2));

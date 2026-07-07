@@ -1,12 +1,14 @@
 "use strict";
 
 const STORAGE_KEY = "life-idle-web-save-v1";
-const VERSION = "0.1.0";
+const VERSION = "0.2.0-dev";
 
 const NAV_ITEMS = [
   { id: "home", label: "首页", icon: "i-home" },
   { id: "skills", label: "技能", icon: "i-skill" },
   { id: "events", label: "事件", icon: "i-event" },
+  { id: "social", label: "社交", icon: "i-social" },
+  { id: "inventory", label: "背包", icon: "i-bag" },
   { id: "career", label: "职业", icon: "i-career" },
   { id: "achievements", label: "成就", icon: "i-trophy" },
 ];
@@ -123,6 +125,60 @@ const ACTIONS = {
   },
 };
 
+const INVENTORY_ITEMS = [
+  item("item.family.advice", "家庭建议", "关系", "来自家人的生活经验，记录着一段稳定的支持。"),
+  item("item.family.snack", "家常点心", "消耗品", "母亲准备的小点心，暂时先作为收藏道具。"),
+  item("item.teacher.note", "课堂笔记", "学习", "老师补充的知识点，后续可作为学习事件材料。"),
+  item("item.classmate.gossip", "同学情报", "关系", "校园里流动的小道消息，可能引出新的事件。"),
+  item("item.park.leaf", "公园叶片", "收藏", "散步时收到的小礼物，带着轻松的记忆。"),
+  item("item.club.flyer", "社团传单", "关系", "大学社团活动的入口线索。"),
+  item("item.office.memo", "办公室备忘", "职业", "职场关系里的细碎信息。"),
+  item("item.client.card", "客户名片", "职业", "需要花钱维护的弱关系，也可能带来机会。"),
+];
+
+const SOCIAL_SCENES = [
+  socialScene("family", "家庭", ["teen", "college", "work"], "低压力关系场景，适合稳定培养亲密关系。", ["father", "mother"]),
+  socialScene("school", "学校", ["teen"], "少年期核心社交场景，老师和同学会影响学习路线。", ["teacher", "classmate"]),
+  socialScene("park", "公园", ["teen", "college", "work"], "轻量社交场景，消耗低，回报偏生活向。", ["neighbour", "runner"]),
+  socialScene("campus", "大学校园", ["college"], "大学阶段开放，社团和学长会带来方向选择。", ["club_senior", "study_partner"]),
+  socialScene("office", "办公室", ["work"], "职场阶段开放，部分 NPC 会消耗金钱维护关系。", ["colleague", "client"]),
+];
+
+const SOCIAL_NPCS = [
+  npc("father", "family", "父亲", "可靠后盾", "关系越高，越可能获得零花钱或实际建议。", 8, 0, 12, [{ id: "item.family.advice", qty: 1 }], [
+    socialBonus(40, 0.35, [effResource("money", 30)], "父亲给了你一点零花钱。"),
+    socialBonus(70, 0.25, [effAttr("discipline", 1)], "父亲的经验让你更有纪律。"),
+  ]),
+  npc("mother", "family", "母亲", "温柔照顾", "稳定降低压力，也会留下家常点心。", 7, 0, 12, [{ id: "item.family.snack", qty: 1 }], [
+    socialBonus(35, 0.4, [effResource("stress", -4), effResource("happiness", 2)], "母亲的关心让你放松下来。"),
+  ]),
+  npc("teacher", "school", "老师", "课堂引导", "提高友好度后，有机会获得基础数学经验。", 10, 0, 14, [{ id: "item.teacher.note", qty: 1 }], [
+    socialBonus(30, 0.45, [effSkill("KNOWLEDGE.MATH.ROOT.001", 16)], "老师额外讲解了一个数学问题。"),
+    socialBonus(60, 0.25, [effSkill("KNOWLEDGE.MATH.BASIC.001", 20)], "老师帮你整理了算术训练思路。"),
+  ]),
+  npc("classmate", "school", "同学", "校园伙伴", "同学关系会带来社交资本和校园情报。", 8, 0, 13, [{ id: "item.classmate.gossip", qty: 1 }], [
+    socialBonus(30, 0.45, [effResource("social", 3)], "同学把你拉进了新的小圈子。"),
+  ]),
+  npc("neighbour", "park", "邻居", "闲聊对象", "低成本社交对象，适合积累轻关系。", 6, 0, 10, [{ id: "item.park.leaf", qty: 1 }], [
+    socialBonus(25, 0.35, [effResource("happiness", 2)], "邻居分享了一件有趣的小事。"),
+  ]),
+  npc("runner", "park", "晨跑者", "运动熟人", "公园里规律出现的人，关系提高后影响健康路线。", 8, 0, 11, [{ id: "item.park.leaf", qty: 1 }], [
+    socialBonus(35, 0.35, [effAttr("fitness", 1)], "晨跑者给了你一点运动建议。"),
+  ]),
+  npc("club_senior", "campus", "社团学长", "活动组织者", "大学社交入口，带来社团材料和创作机会。", 10, 0, 13, [{ id: "item.club.flyer", qty: 1 }], [
+    socialBonus(40, 0.35, [effResource("inspiration", 4)], "学长介绍了一个社团活动。"),
+  ]),
+  npc("study_partner", "campus", "学习搭子", "共同进步", "适合稳定提升学习类收益。", 9, 0, 13, [{ id: "item.teacher.note", qty: 1 }], [
+    socialBonus(35, 0.35, [effResource("knowledge", 4)], "学习搭子帮你复盘了知识点。"),
+  ]),
+  npc("colleague", "office", "同事", "协作关系", "职场基础关系，能提供备忘信息。", 10, 0, 12, [{ id: "item.office.memo", qty: 1 }], [
+    socialBonus(35, 0.35, [effResource("social", 3), effResource("stress", -2)], "同事帮你分担了一点压力。"),
+  ]),
+  npc("client", "office", "客户", "商务弱关系", "需要花钱维护，但可能带来更多职业机会。", 9, 12, 12, [{ id: "item.client.card", qty: 1 }], [
+    socialBonus(45, 0.35, [effResource("money", 60), effResource("reputation", 1)], "客户给你介绍了一个小机会。"),
+  ]),
+];
+
 const SKILLS = [
   skill("KNOWLEDGE.MATH.ROOT.001", "基础数学", "KNOWLEDGE", "数学", "ROOT", ["SCHOOL", "COLLEGE"], ["intelligence", "discipline"], "提高学习和逻辑类收益。", []),
   skill("KNOWLEDGE.MATH.BASIC.001", "算术", "KNOWLEDGE", "数学", "BASIC", ["SCHOOL"], ["intelligence"], "提升基础计算和金钱判断。", [reqSkill("KNOWLEDGE.MATH.ROOT.001", 1)]),
@@ -229,6 +285,18 @@ const CAREERS = [
 ];
 
 const EVENTS = [
+  event("social_father_allowance_001", "父亲的额外零花钱", "关系熟起来后，父亲开始更愿意用实际方式支持你。", ["social_relation"], ["teen", "college", "work"], [reqTag("friendship_father_40")], 100, 90, false, [
+    choice("收下并记账", [effResource("money", 60), effAttr("discipline", 1)], "你获得了零花钱，也更认真地规划怎么用。"),
+    choice("聊聊他的经验", [effSkill("LIFE.MIND.PASSIVE.001", 70), effResource("happiness", 2)], "你听到了一些关于长期坚持的朴素经验。"),
+  ]),
+  event("social_teacher_guidance_001", "老师的额外讲解", "你和老师的关系足够熟悉，对方愿意多花一点时间帮你理清问题。", ["social_relation"], ["teen"], [reqTag("friendship_teacher_30")], 100, 75, false, [
+    choice("请教数学", [effSkill("KNOWLEDGE.MATH.ROOT.001", 90), effResource("knowledge", 6)], "几个卡住的概念突然顺了。"),
+    choice("请教学习方法", [effSkill("LIFE.MIND.PASSIVE.001", 60), effAttr("discipline", 1)], "你学到了一种更稳的复习节奏。"),
+  ]),
+  event("social_classmate_circle_001", "同学的小圈子", "同学开始把你拉进更多课间聊天和活动里。", ["social_relation"], ["teen"], [reqTag("friendship_classmate_30")], 75, 60, false, [
+    choice("积极加入", [effResource("social", 8), effSkill("LIFE.SOCIAL.ROOT.001", 50)], "你在轻松的互动里更自然了。"),
+    choice("保持距离", [effResource("stress", -4), effResource("knowledge", 3)], "你保留了自己的节奏。"),
+  ]),
   event("school_pc_access_001", "第一次认真接触电脑", "你在网络世界里发现了新的工具和社区。", ["stage_enter"], ["teen"], [], 100, 0, true, [
     choice("深入研究", [effSkill("TECH.COMPUTER.ROOT.001", 80), effResource("knowledge", 8)], "电脑基础开始生根。"),
     choice("只是娱乐", [effResource("happiness", 6), effResource("inspiration", 4)], "你获得了一段轻松的放松时间。"),
@@ -462,6 +530,22 @@ function achievement(id, title, desc, condition, effects) {
   return { id, title, desc, condition, effects };
 }
 
+function item(id, name, category, desc) {
+  return { id, name, category, desc };
+}
+
+function socialScene(id, name, stages, desc, npcIds) {
+  return { id, name, stages, desc, npcIds };
+}
+
+function npc(id, sceneId, name, role, desc, energyCost, moneyCost, friendshipGain, drops, bonuses) {
+  return { id, sceneId, name, role, desc, energyCost, moneyCost, friendshipGain, drops, bonuses };
+}
+
+function socialBonus(threshold, chance, effects, text) {
+  return { threshold, chance, effects, text };
+}
+
 function boost(sourceId, targetId, thresholds, reason) {
   return { sourceId, targetId, thresholds, reason };
 }
@@ -564,6 +648,14 @@ function cacheDom() {
   DOM.skillGrid = document.getElementById("skillGrid");
   DOM.eventPanel = document.getElementById("eventPanel");
   DOM.eventHistory = document.getElementById("eventHistory");
+  DOM.socialStageBadge = document.getElementById("socialStageBadge");
+  DOM.socialSceneBadge = document.getElementById("socialSceneBadge");
+  DOM.socialNpcBadge = document.getElementById("socialNpcBadge");
+  DOM.socialSceneList = document.getElementById("socialSceneList");
+  DOM.socialNpcGrid = document.getElementById("socialNpcGrid");
+  DOM.socialDetail = document.getElementById("socialDetail");
+  DOM.inventoryBadge = document.getElementById("inventoryBadge");
+  DOM.inventoryGrid = document.getElementById("inventoryGrid");
   DOM.careerGrid = document.getElementById("careerGrid");
   DOM.currentCareerBadge = document.getElementById("currentCareerBadge");
   DOM.achievementGrid = document.getElementById("achievementGrid");
@@ -640,6 +732,12 @@ function createNewState() {
     },
     skills: {},
     careerId: "none",
+    social: {
+      sceneId: "family",
+      npcId: "father",
+      npcs: {},
+    },
+    inventory: {},
     training: {
       skillId: "KNOWLEDGE.MATH.ROOT.001",
       startedAt: Date.now(),
@@ -670,6 +768,9 @@ function createNewState() {
   SKILLS.forEach(item => {
     const auto = item.unlock.length === 0;
     next.skills[item.id] = { level: auto ? 1 : 0, xp: 0, unlocked: auto };
+  });
+  SOCIAL_NPCS.forEach(item => {
+    next.social.npcs[item.id] = { friendship: 0, interactions: 0 };
   });
 
   checkUnlocks(next);
@@ -711,6 +812,15 @@ function migrateState(loaded) {
   SKILLS.forEach(item => {
     if (!merged.skills[item.id]) merged.skills[item.id] = { level: 0, xp: 0, unlocked: false };
   });
+  merged.social = {
+    ...fresh.social,
+    ...(loaded.social || {}),
+    npcs: { ...fresh.social.npcs, ...((loaded.social && loaded.social.npcs) || {}) },
+  };
+  SOCIAL_NPCS.forEach(item => {
+    if (!merged.social.npcs[item.id]) merged.social.npcs[item.id] = { friendship: 0, interactions: 0 };
+  });
+  merged.inventory = { ...fresh.inventory, ...(loaded.inventory || {}) };
   delete merged.schedule;
   merged.training = loaded.training || fresh.training;
   if (!merged.training.skillId || !merged.skills[merged.training.skillId]?.unlocked) {
@@ -1218,6 +1328,136 @@ function applyEffects(effects = [], source = "") {
   });
 }
 
+function selectSocialScene(sceneId) {
+  const scene = getSocialScene(sceneId);
+  if (!scene || !isSocialSceneAvailable(scene)) return;
+  state.social.sceneId = scene.id;
+  state.social.npcId = scene.npcIds[0] || "";
+  saveState();
+  render();
+}
+
+function selectSocialNpc(npcId) {
+  const npcItem = getSocialNpc(npcId);
+  if (!npcItem) return;
+  state.social.sceneId = npcItem.sceneId;
+  state.social.npcId = npcItem.id;
+  saveState();
+  render();
+}
+
+function socializeWithNpc(npcId, shouldRender = true) {
+  const npcItem = getSocialNpc(npcId);
+  if (!npcItem) return;
+  if (!isSocialSceneAvailable(getSocialScene(npcItem.sceneId))) return;
+  if (!canSocialize(npcItem)) {
+    pushLog(`${npcItem.name}：精力或金钱不足，无法继续社交。`);
+    render();
+    return;
+  }
+
+  addAttr("energy", -npcItem.energyCost);
+  if (npcItem.moneyCost > 0) addResource("money", -npcItem.moneyCost);
+  addResource("social", 1);
+
+  const record = getNpcRecord(npcItem.id);
+  const beforeFriendship = record.friendship;
+  record.friendship = clamp(record.friendship + npcItem.friendshipGain, 0, 100);
+  record.interactions += 1;
+
+  const itemText = [];
+  npcItem.drops.forEach(drop => {
+    addInventoryItem(drop.id, drop.qty);
+    const itemInfo = getInventoryItem(drop.id);
+    itemText.push(`${itemInfo?.name || drop.id} x${drop.qty}`);
+  });
+
+  const bonusText = resolveSocialBonuses(npcItem);
+  markSocialThresholds(npcItem, beforeFriendship, record.friendship);
+  queueEvents("social_relation", 1);
+  checkUnlocks(state);
+  checkAchievements();
+  pushLog(`${npcItem.name} 社交完成：获得 ${itemText.join("、")}，友好度 +${npcItem.friendshipGain}${bonusText ? `；${bonusText}` : ""}`);
+  if (!bonusText) {
+    showToast({
+      type: "info",
+      title: `${npcItem.name} 友好度 +${npcItem.friendshipGain}`,
+      detail: itemText.join("、"),
+    });
+  }
+  saveState();
+  if (shouldRender) render();
+}
+
+function resolveSocialBonuses(npcItem) {
+  const record = getNpcRecord(npcItem.id);
+  const triggered = [];
+  npcItem.bonuses.forEach(bonus => {
+    if (record.friendship < bonus.threshold) return;
+    if (Math.random() > bonus.chance) return;
+    applySocialBonusEffects(bonus.effects, npcItem.name);
+    triggered.push(bonus.text);
+  });
+  return triggered.join("；");
+}
+
+function applySocialBonusEffects(effects = [], source = "") {
+  effects.forEach(effect => {
+    switch (effect.type) {
+      case "resource":
+        addResource(effect.key, effect.amount, { toast: effect.key === "money", source });
+        break;
+      case "attr":
+        addAttr(effect.key, effect.amount);
+        break;
+      case "skillXp":
+        addSkillXp(effect.id, effect.amount, `社交：${source}`, null, { toast: true });
+        break;
+      case "tag":
+        state.tags[effect.id] = true;
+        break;
+      case "project":
+        state.projectProgress = clamp(state.projectProgress + effect.amount, 0, 100);
+        break;
+      default:
+        break;
+    }
+  });
+}
+
+function markSocialThresholds(npcItem, before, after) {
+  const thresholds = Array.from(new Set([20, 40, 60, 80, ...npcItem.bonuses.map(item => item.threshold)]));
+  thresholds.forEach(threshold => {
+    if (before < threshold && after >= threshold) {
+      state.tags[`friendship_${npcItem.id}_${threshold}`] = true;
+    }
+  });
+}
+
+function addInventoryItem(id, count = 1) {
+  if (!getInventoryItem(id)) return;
+  state.inventory[id] = (state.inventory[id] || 0) + count;
+}
+
+function canSocialize(npcItem) {
+  return state.attrs.energy >= npcItem.energyCost
+    && state.resources.money >= npcItem.moneyCost;
+}
+
+function ensureSocialSelection() {
+  const scenes = getAvailableSocialScenes();
+  if (!scenes.length) return;
+  if (!scenes.some(scene => scene.id === state.social.sceneId)) {
+    state.social.sceneId = scenes[0].id;
+    state.social.npcId = scenes[0].npcIds[0] || "";
+    return;
+  }
+  const scene = getSocialScene(state.social.sceneId);
+  if (!scene.npcIds.includes(state.social.npcId)) {
+    state.social.npcId = scene.npcIds[0] || "";
+  }
+}
+
 function render() {
   renderNav();
   renderSidebarSkills();
@@ -1227,6 +1467,8 @@ function render() {
   renderHome();
   renderSkills();
   renderEvents();
+  renderSocial();
+  renderInventory();
   renderCareers();
   renderAchievements();
   document.querySelectorAll(".view").forEach(view => view.classList.toggle("active", view.id === `view-${activeView}`));
@@ -1469,6 +1711,119 @@ function renderEventFocus(compact) {
   `;
 }
 
+function renderSocial() {
+  ensureSocialSelection();
+  const stage = getStage(state.stageId);
+  const scenes = getAvailableSocialScenes();
+  const currentScene = getSocialScene(state.social.sceneId);
+  const currentNpc = getSocialNpc(state.social.npcId);
+  DOM.socialStageBadge.textContent = stage.name;
+  DOM.socialSceneBadge.textContent = currentScene?.name || "未选择";
+  DOM.socialNpcBadge.textContent = currentNpc ? getFriendshipRank(getNpcRecord(currentNpc.id).friendship).name : "未选择";
+
+  DOM.socialSceneList.innerHTML = scenes.map(scene => {
+    const active = state.social.sceneId === scene.id;
+    return `
+      <button class="social-scene ${active ? "active" : ""}" type="button" data-social-scene="${scene.id}">
+        <span>${scene.name}</span>
+        <small>${scene.desc}</small>
+      </button>
+    `;
+  }).join("") || `<div class="empty-state">当前阶段没有可社交场景。</div>`;
+
+  const npcs = currentScene ? currentScene.npcIds.map(getSocialNpc).filter(Boolean) : [];
+  DOM.socialNpcGrid.innerHTML = npcs.map(npcItem => renderNpcCard(npcItem)).join("") || `<div class="empty-state">这个场景暂时没有 NPC。</div>`;
+  DOM.socialDetail.innerHTML = currentNpc ? renderNpcDetail(currentNpc) : `<div class="empty-state">选择一个 NPC 开始社交。</div>`;
+}
+
+function renderNpcCard(npcItem) {
+  const record = getNpcRecord(npcItem.id);
+  const rank = getFriendshipRank(record.friendship);
+  const active = state.social.npcId === npcItem.id;
+  const pct = clamp(record.friendship, 0, 100);
+  return `
+    <article class="npc-card ${active ? "active" : ""}" data-social-npc="${npcItem.id}" role="button" tabindex="0">
+      <div class="skill-head">
+        <div>
+          <div class="skill-name">${npcItem.name}</div>
+          <div class="item-meta">${npcItem.role}</div>
+        </div>
+        <span class="badge ${active ? "" : "soft"}">${rank.name}</span>
+      </div>
+      <div class="compact-readout">
+        <div class="readout-label"><span>友好度</span><strong>${Math.round(record.friendship)}/100</strong></div>
+        <div class="training-progress-frame compact-frame social-frame">
+          <div class="training-progress-fill social-fill" style="width:${pct}%"></div>
+        </div>
+      </div>
+      <p class="skill-desc">${npcItem.desc}</p>
+    </article>
+  `;
+}
+
+function renderNpcDetail(npcItem) {
+  const record = getNpcRecord(npcItem.id);
+  const rank = getFriendshipRank(record.friendship);
+  const drops = npcItem.drops.map(drop => {
+    const itemInfo = getInventoryItem(drop.id);
+    return `<span>${itemInfo?.name || drop.id} x${drop.qty}</span>`;
+  }).join("");
+  const bonusText = npcItem.bonuses.map(bonus => `<span>友好度 ${bonus.threshold}+：${bonus.text}</span>`).join("");
+  const canAct = canSocialize(npcItem);
+  const costs = [
+    `精力 -${npcItem.energyCost}`,
+    npcItem.moneyCost > 0 ? `金钱 -${npcItem.moneyCost}` : "",
+  ].filter(Boolean).join(" · ");
+  return `
+    <article class="social-detail-card">
+      <div class="training-head">
+        <div>
+          <div class="slot-time">${getSocialScene(npcItem.sceneId)?.name || "社交"} · ${npcItem.role}</div>
+          <h3>${npcItem.name}</h3>
+        </div>
+        <span class="badge">${rank.name}</span>
+      </div>
+      <p class="event-text">${npcItem.desc}</p>
+      <div class="social-cost-row">
+        <div class="resource-chip"><span>消耗</span><strong>${costs}</strong></div>
+        <div class="resource-chip"><span>友好度</span><strong>+${npcItem.friendshipGain}</strong></div>
+      </div>
+      <div class="social-reward-list">
+        <strong>固定获得</strong>
+        ${drops}
+      </div>
+      <div class="social-reward-list">
+        <strong>关系奖励</strong>
+        ${bonusText || "<span>提升友好度后解锁。</span>"}
+      </div>
+      <button class="icon-button primary social-action-button" type="button" data-social-action="${npcItem.id}" ${canAct ? "" : "disabled"}>
+        <svg><use href="#i-social"></use></svg><span>${canAct ? "社交" : "资源不足"}</span>
+      </button>
+    </article>
+  `;
+}
+
+function renderInventory() {
+  const entries = Object.entries(state.inventory || {}).filter(([, count]) => count > 0);
+  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+  DOM.inventoryBadge.textContent = `${total} 件`;
+  DOM.inventoryGrid.innerHTML = entries.map(([id, count]) => {
+    const itemInfo = getInventoryItem(id);
+    return `
+      <article class="inventory-card">
+        <div class="skill-head">
+          <div>
+            <div class="skill-name">${itemInfo?.name || id}</div>
+            <div class="item-meta">${itemInfo?.category || "物品"}</div>
+          </div>
+          <span class="badge">x${count}</span>
+        </div>
+        <p class="skill-desc">${itemInfo?.desc || "尚未记录说明。"}</p>
+      </article>
+    `;
+  }).join("") || `<div class="empty-state">背包还是空的。去社交场景里和 NPC 互动，可以获得道具。</div>`;
+}
+
 function renderCareers() {
   const current = getCareer(state.careerId);
   DOM.currentCareerBadge.textContent = current.name;
@@ -1529,6 +1884,21 @@ document.addEventListener("click", event => {
     startTraining(trainTarget.dataset.trainSkill);
     return;
   }
+  const socialScene = event.target.closest("[data-social-scene]");
+  if (socialScene) {
+    selectSocialScene(socialScene.dataset.socialScene);
+    return;
+  }
+  const socialNpc = event.target.closest("[data-social-npc]");
+  if (socialNpc) {
+    selectSocialNpc(socialNpc.dataset.socialNpc);
+    return;
+  }
+  const socialAction = event.target.closest("[data-social-action]");
+  if (socialAction) {
+    socializeWithNpc(socialAction.dataset.socialAction);
+    return;
+  }
   const choiceButton = event.target.closest("[data-event][data-choice]");
   if (choiceButton) {
     resolveEventChoice(choiceButton.dataset.event, Number(choiceButton.dataset.choice));
@@ -1538,9 +1908,16 @@ document.addEventListener("click", event => {
 document.addEventListener("keydown", event => {
   if (event.key !== "Enter" && event.key !== " ") return;
   const trainTarget = event.target.closest?.("[data-train-skill]");
-  if (!trainTarget) return;
-  event.preventDefault();
-  startTraining(trainTarget.dataset.trainSkill);
+  if (trainTarget) {
+    event.preventDefault();
+    startTraining(trainTarget.dataset.trainSkill);
+    return;
+  }
+  const socialNpc = event.target.closest?.("[data-social-npc]");
+  if (socialNpc) {
+    event.preventDefault();
+    selectSocialNpc(socialNpc.dataset.socialNpc);
+  }
 });
 
 function missingRequirements(requirements = []) {
@@ -1606,6 +1983,39 @@ function getCareer(id) {
 
 function getStage(id) {
   return STAGES.find(item => item.id === id) || STAGES[0];
+}
+
+function getInventoryItem(id) {
+  return INVENTORY_ITEMS.find(item => item.id === id);
+}
+
+function getSocialScene(id) {
+  return SOCIAL_SCENES.find(item => item.id === id);
+}
+
+function getSocialNpc(id) {
+  return SOCIAL_NPCS.find(item => item.id === id);
+}
+
+function getAvailableSocialScenes() {
+  return SOCIAL_SCENES.filter(item => isSocialSceneAvailable(item));
+}
+
+function isSocialSceneAvailable(scene) {
+  return Boolean(scene && scene.stages.includes(state.stageId));
+}
+
+function getNpcRecord(id) {
+  if (!state.social.npcs[id]) state.social.npcs[id] = { friendship: 0, interactions: 0 };
+  return state.social.npcs[id];
+}
+
+function getFriendshipRank(value) {
+  if (value >= 80) return { name: "信赖", next: 100 };
+  if (value >= 60) return { name: "亲近", next: 80 };
+  if (value >= 40) return { name: "熟悉", next: 60 };
+  if (value >= 20) return { name: "认识", next: 40 };
+  return { name: "陌生", next: 20 };
 }
 
 function getUnlockedSkills() {

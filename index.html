@@ -27,6 +27,12 @@
       <symbol id="i-event" viewBox="0 0 24 24">
         <path d="M12 2l9 5v10l-9 5-9-5V7l9-5zm0 3.2L6 8.5v7l6 3.3 6-3.3v-7l-6-3.3z"></path>
       </symbol>
+      <symbol id="i-social" viewBox="0 0 24 24">
+        <path d="M8 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm8.5 1a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7zM2 21a6 6 0 0 1 12 0H2zm10.8 0a7.7 7.7 0 0 0-2.1-5.3A5.5 5.5 0 0 1 22 18.5V21h-9.2z"></path>
+      </symbol>
+      <symbol id="i-bag" viewBox="0 0 24 24">
+        <path d="M8 7V5a4 4 0 0 1 8 0v2h4v15H4V7h4zm2 0h4V5a2 2 0 0 0-4 0v2zm-4 2v11h12V9H6z"></path>
+      </symbol>
       <symbol id="i-career" viewBox="0 0 24 24">
         <path d="M9 4h6l1 3h5v13H3V7h5l1-3zm1.5 3h3l-.3-1h-2.4l-.3 1zM5 10v8h14v-8H5z"></path>
       </symbol>
@@ -149,6 +155,42 @@
               <div class="history-list" id="eventHistory"></div>
             </section>
           </div>
+        </section>
+
+        <section class="view" id="view-social" aria-labelledby="tab-social">
+          <div class="social-layout">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>社交场景</h2>
+                <span class="badge soft" id="socialStageBadge"></span>
+              </div>
+              <div class="social-scene-list" id="socialSceneList"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>NPC</h2>
+                <span class="badge" id="socialSceneBadge"></span>
+              </div>
+              <div class="social-npc-grid" id="socialNpcGrid"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>社交详情</h2>
+                <span class="badge soft" id="socialNpcBadge"></span>
+              </div>
+              <div id="socialDetail"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="view-inventory" aria-labelledby="tab-inventory">
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>背包</h2>
+              <span class="badge soft" id="inventoryBadge"></span>
+            </div>
+            <div class="inventory-grid" id="inventoryGrid"></div>
+          </section>
         </section>
 
         <section class="view" id="view-career" aria-labelledby="tab-career">
