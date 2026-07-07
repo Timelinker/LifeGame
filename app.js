@@ -144,6 +144,13 @@ const SOCIAL_SCENES = [
   socialScene("office", "办公室", ["work"], "职场阶段开放，部分 NPC 会消耗金钱维护关系。", ["colleague", "client"]),
 ];
 
+const SOCIAL_ACTIONS = [
+  socialAction("talk", "交谈", "基础社交行为，稳定提升友好度，并锻炼沟通表达。", 3200, 0, 0, 0, [
+    { id: "LIFE.SOCIAL.ROOT.001", amount: 10 },
+    { id: "LIFE.SOCIAL.BASIC.001", amount: 6, unlockedOnly: true },
+  ]),
+];
+
 const SOCIAL_NPCS = [
   npc("father", "family", "父亲", "可靠后盾", "关系越高，越可能获得零花钱或实际建议。", 8, 0, 12, [{ id: "item.family.advice", qty: 1 }], [
     socialBonus(40, 0.35, [effResource("money", 30)], "父亲给了你一点零花钱。"),
@@ -538,6 +545,10 @@ function socialScene(id, name, stages, desc, npcIds) {
   return { id, name, stages, desc, npcIds };
 }
 
+function socialAction(id, name, desc, duration, energyCost, moneyCost, friendshipGain, skillXp) {
+  return { id, name, desc, duration, energyCost, moneyCost, friendshipGain, skillXp };
+}
+
 function npc(id, sceneId, name, role, desc, energyCost, moneyCost, friendshipGain, drops, bonuses) {
   return { id, sceneId, name, role, desc, energyCost, moneyCost, friendshipGain, drops, bonuses };
 }
@@ -735,6 +746,7 @@ function createNewState() {
     social: {
       sceneId: "family",
       npcId: "father",
+      action: null,
       npcs: {},
     },
     inventory: {},
@@ -820,6 +832,9 @@ function migrateState(loaded) {
   SOCIAL_NPCS.forEach(item => {
     if (!merged.social.npcs[item.id]) merged.social.npcs[item.id] = { friendship: 0, interactions: 0 };
   });
+  if (!getSocialNpc(merged.social.action?.npcId) || !getSocialAction(merged.social.action?.actionId)) {
+    merged.social.action = null;
+  }
   merged.inventory = { ...fresh.inventory, ...(loaded.inventory || {}) };
   delete merged.schedule;
   merged.training = loaded.training || fresh.training;
@@ -872,9 +887,13 @@ function processOffline() {
 function startRealtimeLoop() {
   if (realtimeFrame) cancelAnimationFrame(realtimeFrame);
   const loop = () => {
-    const changed = processTrainingTicks();
-    if (changed) render();
-    else updateTrainingProgress();
+    const trainingChanged = processTrainingTicks();
+    const socialChanged = processSocialTicks();
+    if (trainingChanged || socialChanged) render();
+    else {
+      updateTrainingProgress();
+      updateSocialProgress();
+    }
     realtimeFrame = requestAnimationFrame(loop);
   };
   realtimeFrame = requestAnimationFrame(loop);
@@ -900,6 +919,45 @@ function processTrainingTicks() {
   if (skillText) pushLog(skillText);
   checkAchievements();
   checkUnlocks(state);
+  saveState();
+  return true;
+}
+
+function processSocialTicks() {
+  const actionState = state.social?.action;
+  if (!actionState?.npcId) return false;
+  const npcItem = getSocialNpc(actionState.npcId);
+  const actionItem = getSocialAction(actionState.actionId);
+  if (!npcItem || !actionItem || !isSocialSceneAvailable(getSocialScene(npcItem.sceneId))) {
+    state.social.action = null;
+    saveState();
+    return true;
+  }
+
+  const profile = getSocialActionProfile(npcItem, actionItem);
+  const now = Date.now();
+  const elapsed = now - (actionState.startedAt || now);
+  const completed = Math.min(8, Math.floor(elapsed / profile.duration));
+  if (completed <= 0) return false;
+
+  let done = 0;
+  for (let i = 0; i < completed; i += 1) {
+    const acted = socializeWithNpc(npcItem.id, false, actionItem.id, true, false);
+    if (!acted) {
+      state.social.action = null;
+      break;
+    }
+    done += 1;
+  }
+
+  if (state.social.action && done > 0) {
+    state.social.action.startedAt = (actionState.startedAt || now) + done * profile.duration;
+    state.social.action.duration = profile.duration;
+    state.social.action.completions = (state.social.action.completions || 0) + done;
+  }
+
+  checkUnlocks(state);
+  checkAchievements();
   saveState();
   return true;
 }
@@ -1029,6 +1087,29 @@ function updateTrainingProgress() {
     node.style.transform = `scaleX(${progress.pct / 100})`;
   });
   document.querySelectorAll("[data-training-time], [data-skill-card-cd-time]").forEach(node => {
+    node.textContent = `${(progress.remaining / 1000).toFixed(1)} 秒`;
+  });
+}
+
+function getSocialProgress() {
+  const actionState = state.social?.action;
+  if (!actionState?.npcId) return { pct: 0, remaining: 0, elapsed: 0, duration: 1 };
+  const npcItem = getSocialNpc(actionState.npcId);
+  const actionItem = getSocialAction(actionState.actionId);
+  if (!npcItem || !actionItem) return { pct: 0, remaining: 0, elapsed: 0, duration: 1 };
+  const duration = getSocialActionProfile(npcItem, actionItem).duration;
+  const elapsed = Math.max(0, Date.now() - (actionState.startedAt || Date.now()));
+  const elapsedInCycle = elapsed % duration;
+  const pct = clamp(elapsedInCycle / duration * 100, 0, 100);
+  return { pct, elapsed: elapsedInCycle, remaining: Math.max(0, duration - elapsedInCycle), duration };
+}
+
+function updateSocialProgress() {
+  const progress = getSocialProgress();
+  document.querySelectorAll("[data-social-cd-progress]").forEach(node => {
+    node.style.transform = `scaleX(${progress.pct / 100})`;
+  });
+  document.querySelectorAll("[data-social-cd-time]").forEach(node => {
     node.textContent = `${(progress.remaining / 1000).toFixed(1)} 秒`;
   });
 }
@@ -1254,7 +1335,7 @@ function queueEventsFor(target, trigger, limit = 1) {
 
   for (let i = 0; i < limit; i += 1) {
     if (!candidates.length || target.eventQueue.length >= maxQueue) break;
-    const picked = weightedPick(candidates);
+    const picked = weightedPick(candidates, target);
     if (!picked) break;
     target.eventQueue.push(picked.id);
     candidates.splice(candidates.indexOf(picked), 1);
@@ -1268,21 +1349,21 @@ function queueSpecificEvent(id) {
   state.eventQueue.push(id);
 }
 
-function weightedPick(items) {
-  const total = items.reduce((sum, item) => sum + getEventWeight(item), 0);
+function weightedPick(items, target = state) {
+  const total = items.reduce((sum, item) => sum + getEventWeight(item, target), 0);
   let roll = Math.random() * total;
   for (const item of items) {
-    roll -= getEventWeight(item);
+    roll -= getEventWeight(item, target);
     if (roll <= 0) return item;
   }
   return items[0];
 }
 
-function getEventWeight(item) {
+function getEventWeight(item, target = state) {
   let weight = item.weight;
-  if (state.tags.disciplined && item.id.includes("pressure")) weight -= 6;
-  if (state.resources.stress > 70 && item.triggers.includes("resource_state")) weight += 8;
-  if (state.resources.inspiration > 55 && item.id.includes("inspiration")) weight += 10;
+  if (target.tags.disciplined && item.id.includes("pressure")) weight -= 6;
+  if (target.resources.stress > 70 && item.triggers.includes("resource_state")) weight += 8;
+  if (target.resources.inspiration > 55 && item.id.includes("inspiration")) weight += 10;
   return Math.max(1, weight);
 }
 
@@ -1346,23 +1427,56 @@ function selectSocialNpc(npcId) {
   render();
 }
 
-function socializeWithNpc(npcId, shouldRender = true) {
+function startSocialAction(npcId, actionId = "talk", shouldRender = true) {
   const npcItem = getSocialNpc(npcId);
-  if (!npcItem) return;
-  if (!isSocialSceneAvailable(getSocialScene(npcItem.sceneId))) return;
-  if (!canSocialize(npcItem)) {
-    pushLog(`${npcItem.name}：精力或金钱不足，无法继续社交。`);
-    render();
-    return;
+  const actionItem = getSocialAction(actionId);
+  if (!npcItem || !actionItem) return false;
+  if (!isSocialSceneAvailable(getSocialScene(npcItem.sceneId))) return false;
+
+  state.social.sceneId = npcItem.sceneId;
+  state.social.npcId = npcItem.id;
+  if (!canSocialize(npcItem, actionItem.id)) {
+    pushLog(`${npcItem.name}：精力或金钱不足，无法开始${actionItem.name}。`);
+    if (shouldRender) render();
+    return false;
   }
 
-  addAttr("energy", -npcItem.energyCost);
-  if (npcItem.moneyCost > 0) addResource("money", -npcItem.moneyCost);
+  const profile = getSocialActionProfile(npcItem, actionItem);
+  state.social.action = {
+    npcId: npcItem.id,
+    actionId: actionItem.id,
+    startedAt: Date.now(),
+    duration: profile.duration,
+    completions: 0,
+  };
+  pushLog(`开始${actionItem.name}：${npcItem.name}`);
+  saveState();
+  if (shouldRender) render();
+  return true;
+}
+
+function socializeWithNpc(npcId, shouldRender = true, actionId = "talk", showGainToast = true, shouldSave = true) {
+  const npcItem = getSocialNpc(npcId);
+  const actionItem = getSocialAction(actionId);
+  if (!npcItem || !actionItem) return false;
+  if (!isSocialSceneAvailable(getSocialScene(npcItem.sceneId))) return false;
+
+  const profile = getSocialActionProfile(npcItem, actionItem);
+  if (!canSocialize(npcItem, actionItem.id)) {
+    pushLog(`${npcItem.name}：精力或金钱不足，${actionItem.name}已停止。`);
+    if (shouldSave) saveState();
+    if (shouldRender) render();
+    return false;
+  }
+
+  addAttr("energy", -profile.energyCost);
+  if (profile.moneyCost > 0) addResource("money", -profile.moneyCost);
   addResource("social", 1);
+  applySocialSkillEffects(profile.skillXp, `${npcItem.name}：${actionItem.name}`, showGainToast);
 
   const record = getNpcRecord(npcItem.id);
   const beforeFriendship = record.friendship;
-  record.friendship = clamp(record.friendship + npcItem.friendshipGain, 0, 100);
+  record.friendship = clamp(record.friendship + profile.friendshipGain, 0, 100);
   record.interactions += 1;
 
   const itemText = [];
@@ -1377,16 +1491,17 @@ function socializeWithNpc(npcId, shouldRender = true) {
   queueEvents("social_relation", 1);
   checkUnlocks(state);
   checkAchievements();
-  pushLog(`${npcItem.name} 社交完成：获得 ${itemText.join("、")}，友好度 +${npcItem.friendshipGain}${bonusText ? `；${bonusText}` : ""}`);
+  pushLog(`${npcItem.name}${actionItem.name}完成：获得 ${itemText.join("、")}，友好度 +${profile.friendshipGain}${bonusText ? `；${bonusText}` : ""}`);
   if (!bonusText) {
     showToast({
       type: "info",
-      title: `${npcItem.name} 友好度 +${npcItem.friendshipGain}`,
+      title: `${npcItem.name} 友好度 +${profile.friendshipGain}`,
       detail: itemText.join("、"),
     });
   }
-  saveState();
+  if (shouldSave) saveState();
   if (shouldRender) render();
+  return true;
 }
 
 function resolveSocialBonuses(npcItem) {
@@ -1425,6 +1540,13 @@ function applySocialBonusEffects(effects = [], source = "") {
   });
 }
 
+function applySocialSkillEffects(effects = [], source = "", showGainToast = true) {
+  effects.forEach(effect => {
+    if (effect.unlockedOnly && !isUnlocked(state, effect.id)) return;
+    addSkillXp(effect.id, effect.amount, source, null, { toast: showGainToast });
+  });
+}
+
 function markSocialThresholds(npcItem, before, after) {
   const thresholds = Array.from(new Set([20, 40, 60, 80, ...npcItem.bonuses.map(item => item.threshold)]));
   thresholds.forEach(threshold => {
@@ -1439,9 +1561,12 @@ function addInventoryItem(id, count = 1) {
   state.inventory[id] = (state.inventory[id] || 0) + count;
 }
 
-function canSocialize(npcItem) {
-  return state.attrs.energy >= npcItem.energyCost
-    && state.resources.money >= npcItem.moneyCost;
+function canSocialize(npcItem, actionId = "talk") {
+  const actionItem = getSocialAction(actionId);
+  if (!npcItem || !actionItem) return false;
+  const profile = getSocialActionProfile(npcItem, actionItem);
+  return state.attrs.energy >= profile.energyCost
+    && state.resources.money >= profile.moneyCost;
 }
 
 function ensureSocialSelection() {
@@ -1487,13 +1612,17 @@ function renderShell() {
 }
 
 function renderTopResourceBar() {
-  const shown = ["money", "knowledge", "inspiration", "social", "stress", "happiness", "reputation"];
-  DOM.topResourceBar.innerHTML = shown.map(key => `
-    <div class="top-resource ${key === "stress" && state.resources.stress > 70 ? "warning" : ""}">
+  const shown = ["energy", "money", "knowledge", "inspiration", "social", "stress", "happiness", "reputation"];
+  DOM.topResourceBar.innerHTML = shown.map(key => {
+    const value = key in state.attrs ? state.attrs[key] : (state.resources[key] ?? 0);
+    const warning = (key === "stress" && state.resources.stress > 70) || (key === "energy" && state.attrs.energy < 20);
+    return `
+    <div class="top-resource ${warning ? "warning" : ""}">
       <span>${resourceName(key)}</span>
-      <strong>${state.resources[key] ?? 0}</strong>
+      <strong>${Math.round(value)}</strong>
     </div>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderSidebarSkills() {
@@ -1764,16 +1893,26 @@ function renderNpcCard(npcItem) {
 function renderNpcDetail(npcItem) {
   const record = getNpcRecord(npcItem.id);
   const rank = getFriendshipRank(record.friendship);
+  const actionItem = getSocialAction("talk");
+  const profile = getSocialActionProfile(npcItem, actionItem);
+  const isActive = state.social.action?.npcId === npcItem.id && state.social.action?.actionId === actionItem.id;
+  const progress = isActive ? getSocialProgress() : { pct: 0, remaining: profile.duration };
   const drops = npcItem.drops.map(drop => {
     const itemInfo = getInventoryItem(drop.id);
     return `<span>${itemInfo?.name || drop.id} x${drop.qty}</span>`;
   }).join("");
   const bonusText = npcItem.bonuses.map(bonus => `<span>友好度 ${bonus.threshold}+：${bonus.text}</span>`).join("");
-  const canAct = canSocialize(npcItem);
+  const skillXpText = profile.skillXp.map(effect => {
+    const skillItem = getSkill(effect.id);
+    return `<span>${skillItem?.name || effect.id} +${effect.amount} XP${effect.unlockedOnly ? "（解锁后）" : ""}</span>`;
+  }).join("");
+  const canAct = canSocialize(npcItem, actionItem.id);
   const costs = [
-    `精力 -${npcItem.energyCost}`,
-    npcItem.moneyCost > 0 ? `金钱 -${npcItem.moneyCost}` : "",
+    `精力 -${profile.energyCost}`,
+    profile.moneyCost > 0 ? `金钱 -${profile.moneyCost}` : "",
   ].filter(Boolean).join(" · ");
+  const cdFillAttr = isActive ? "data-social-cd-progress" : "";
+  const cdTimeAttr = isActive ? "data-social-cd-time" : "";
   return `
     <article class="social-detail-card">
       <div class="training-head">
@@ -1786,18 +1925,28 @@ function renderNpcDetail(npcItem) {
       <p class="event-text">${npcItem.desc}</p>
       <div class="social-cost-row">
         <div class="resource-chip"><span>消耗</span><strong>${costs}</strong></div>
-        <div class="resource-chip"><span>友好度</span><strong>+${npcItem.friendshipGain}</strong></div>
+        <div class="resource-chip"><span>友好度</span><strong>+${profile.friendshipGain}</strong></div>
+      </div>
+      <div class="compact-readout social-action-readout">
+        <div class="readout-label"><span>${actionItem.name} CD</span><strong ${cdTimeAttr}>${(progress.remaining / 1000).toFixed(1)} 秒</strong></div>
+        <div class="training-progress-frame compact-frame social-action-frame">
+          <div class="training-progress-fill social-action-fill" ${cdFillAttr} style="transform:scaleX(${isActive ? progress.pct / 100 : 0})"></div>
+        </div>
       </div>
       <div class="social-reward-list">
         <strong>固定获得</strong>
         ${drops}
       </div>
       <div class="social-reward-list">
+        <strong>技能经验</strong>
+        ${skillXpText}
+      </div>
+      <div class="social-reward-list">
         <strong>关系奖励</strong>
         ${bonusText || "<span>提升友好度后解锁。</span>"}
       </div>
-      <button class="icon-button primary social-action-button" type="button" data-social-action="${npcItem.id}" ${canAct ? "" : "disabled"}>
-        <svg><use href="#i-social"></use></svg><span>${canAct ? "社交" : "资源不足"}</span>
+      <button class="icon-button primary social-action-button" type="button" data-social-target="${npcItem.id}" data-social-action="${actionItem.id}" ${canAct || isActive ? "" : "disabled"}>
+        <svg><use href="#i-social"></use></svg><span>${canAct || isActive ? (isActive ? "交谈中" : actionItem.name) : "资源不足"}</span>
       </button>
     </article>
   `;
@@ -1896,7 +2045,7 @@ document.addEventListener("click", event => {
   }
   const socialAction = event.target.closest("[data-social-action]");
   if (socialAction) {
-    socializeWithNpc(socialAction.dataset.socialAction);
+    startSocialAction(socialAction.dataset.socialTarget, socialAction.dataset.socialAction);
     return;
   }
   const choiceButton = event.target.closest("[data-event][data-choice]");
@@ -1995,6 +2144,20 @@ function getSocialScene(id) {
 
 function getSocialNpc(id) {
   return SOCIAL_NPCS.find(item => item.id === id);
+}
+
+function getSocialAction(id) {
+  return SOCIAL_ACTIONS.find(item => item.id === id) || SOCIAL_ACTIONS[0];
+}
+
+function getSocialActionProfile(npcItem, actionItem = getSocialAction("talk")) {
+  return {
+    duration: Math.max(800, actionItem.duration || 3000),
+    energyCost: Math.max(0, (npcItem.energyCost || 0) + (actionItem.energyCost || 0)),
+    moneyCost: Math.max(0, (npcItem.moneyCost || 0) + (actionItem.moneyCost || 0)),
+    friendshipGain: Math.max(0, (npcItem.friendshipGain || 0) + (actionItem.friendshipGain || 0)),
+    skillXp: actionItem.skillXp || [],
+  };
 }
 
 function getAvailableSocialScenes() {

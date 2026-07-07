@@ -312,7 +312,7 @@ h3 {
 
 .top-resource-bar {
   display: grid;
-  grid-template-columns: repeat(7, minmax(72px, 1fr));
+  grid-template-columns: repeat(8, minmax(68px, 1fr));
   gap: 6px;
   flex: 1 1 auto;
   min-width: 360px;
@@ -822,6 +822,20 @@ h3 {
 .social-fill {
   background: linear-gradient(90deg, #c98a17, #f0c875);
   box-shadow: 0 0 14px rgba(201, 138, 23, 0.22);
+}
+
+.social-action-readout {
+  margin: 12px 0 4px;
+}
+
+.social-action-frame {
+  border-color: rgba(50, 182, 166, 0.55);
+}
+
+.social-action-fill {
+  width: 100%;
+  background: linear-gradient(90deg, #32b6a6, #83f0b2);
+  transform: scaleX(0);
 }
 
 .social-cost-row {
