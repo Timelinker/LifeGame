@@ -507,7 +507,7 @@ let activeView = "home";
 let activeSkillFilter = "ALL";
 let realtimeFrame = null;
 let toastSerial = 0;
-const TOAST_TTL_MS = 1000;
+const TOAST_TTL_MS = 3000;
 const MAX_VISIBLE_TOASTS = 4;
 const activeToasts = new Map();
 
