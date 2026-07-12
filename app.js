@@ -507,6 +507,9 @@ let activeView = "home";
 let activeSkillFilter = "ALL";
 let realtimeFrame = null;
 let toastSerial = 0;
+const TOAST_TTL_MS = 1000;
+const MAX_VISIBLE_TOASTS = 4;
+const activeToasts = new Map();
 
 document.addEventListener("DOMContentLoaded", () => {
   cacheDom();
@@ -1138,18 +1141,38 @@ function addResource(key, amount, options = {}) {
   const before = state.resources[key];
   state.resources[key] = Math.round(clamp(before + amount, key === "stress" ? 0 : -9999, key === "stress" || key === "happiness" ? 100 : 999999));
   const gained = state.resources[key] - before;
-  if (options.toast && key === "money" && gained > 0) {
+  if (options.toast && key === "money" && gained !== 0) {
+    const direction = gained > 0 ? "gain" : "cost";
     showToast({
       type: "money",
-      title: `金钱 +${gained}`,
-      detail: options.source ? `${options.source}收益` : "收益入账",
+      direction,
+      key: `resource:${key}:${direction}`,
+      target: resourceName(key),
+      amount: Math.abs(gained),
+      verb: direction === "gain" ? "获得" : "支出",
+      detail: options.source || "",
     });
   }
 }
 
-function addAttr(key, amount) {
+function addAttr(key, amount, options = {}) {
   if (!(key in state.attrs)) return;
+  const before = state.attrs[key];
   state.attrs[key] = Math.round(clamp(state.attrs[key] + amount, 0, 100));
+  const changed = state.attrs[key] - before;
+  if (options.toast && changed !== 0) {
+    const direction = changed > 0 ? "gain" : "cost";
+    showToast({
+      type: "attr",
+      direction,
+      key: `attr:${key}:${direction}`,
+      target: attrName(key),
+      amount: Math.abs(changed),
+      unit: "点",
+      verb: direction === "gain" ? "恢复" : "消耗",
+      detail: options.source || "",
+    });
+  }
 }
 
 function addSkillXp(id, amount, source = "成长", boostInfo = null, options = {}) {
@@ -1169,7 +1192,12 @@ function addSkillXp(id, amount, source = "成长", boostInfo = null, options = {
     const boostText = boostInfo?.total > 0 ? `学习加速 +${Math.round(boostInfo.total * 100)}%` : source;
     showToast({
       type: "xp",
-      title: `${item.name} 经验 +${Math.round(gained)}`,
+      direction: "gain",
+      key: `xp:${id}`,
+      target: `${item.name}经验`,
+      amount: Math.round(gained),
+      unit: "点",
+      verb: "获得",
       detail: boostText,
     });
   }
@@ -1469,8 +1497,8 @@ function socializeWithNpc(npcId, shouldRender = true, actionId = "talk", showGai
     return false;
   }
 
-  addAttr("energy", -profile.energyCost);
-  if (profile.moneyCost > 0) addResource("money", -profile.moneyCost);
+  addAttr("energy", -profile.energyCost, { toast: showGainToast, source: actionItem.name });
+  if (profile.moneyCost > 0) addResource("money", -profile.moneyCost, { toast: showGainToast, source: actionItem.name });
   addResource("social", 1);
   applySocialSkillEffects(profile.skillXp, `${npcItem.name}：${actionItem.name}`, showGainToast);
 
@@ -1495,7 +1523,12 @@ function socializeWithNpc(npcId, shouldRender = true, actionId = "talk", showGai
   if (!bonusText) {
     showToast({
       type: "info",
-      title: `${npcItem.name} 友好度 +${profile.friendshipGain}`,
+      direction: "gain",
+      key: `friendship:${npcItem.id}`,
+      target: `${npcItem.name}友好度`,
+      amount: profile.friendshipGain,
+      unit: "点",
+      verb: "获得",
       detail: itemText.join("、"),
     });
   }
@@ -2238,22 +2271,70 @@ function formatSigned(value) {
   return `${value >= 0 ? "+" : ""}${value}`;
 }
 
-function showToast({ type = "info", title = "", detail = "" }) {
+function showToast({ type = "info", direction = "gain", key = "", title = "", detail = "", target = "", amount = null, unit = "", verb = "" }) {
   if (!DOM.toastStack || !document.createElement) return;
-  const node = document.createElement("div");
-  const icon = type === "money" ? "¥" : type === "xp" ? "XP" : "+";
-  node.className = `toast toast-${type}`;
-  node.dataset.toastId = String(++toastSerial);
+  const hasAmount = amount !== null && amount !== undefined && Number.isFinite(Number(amount));
+  const toastKey = key || `${type}:${direction}:${title}:${detail}`;
+  const cached = activeToasts.get(toastKey);
+  const total = hasAmount ? (cached?.amount || 0) + Math.abs(Number(amount)) : 0;
+  let node = cached?.node;
+
+  if (!node || !node.isConnected) {
+    node = document.createElement("div");
+    node.dataset.toastId = String(++toastSerial);
+    node.dataset.toastKey = toastKey;
+    DOM.toastStack.appendChild(node);
+  }
+
+  const displayTitle = hasAmount
+    ? `${verb || defaultToastVerb(type, direction)}${target || title}${formatToastAmount(total)}${unit}`
+    : title;
+  node.className = `toast toast-${type} toast-${direction}`;
   node.innerHTML = `
-    <div class="toast-icon">${escapeHtml(icon)}</div>
+    <div class="toast-icon">${escapeHtml(toastIcon(type, direction))}</div>
     <div class="toast-copy">
-      <strong>${escapeHtml(title)}</strong>
+      <strong>${escapeHtml(displayTitle)}</strong>
       ${detail ? `<span>${escapeHtml(detail)}</span>` : ""}
     </div>
   `;
-  DOM.toastStack.replaceChildren();
-  DOM.toastStack.appendChild(node);
-  setTimeout(() => node.remove(), 500);
+
+  if (cached?.timer) clearTimeout(cached.timer);
+  const timer = setTimeout(() => {
+    activeToasts.delete(toastKey);
+    node.remove();
+  }, TOAST_TTL_MS);
+  activeToasts.set(toastKey, { node, amount: total, timer });
+  trimToastStack();
+}
+
+function defaultToastVerb(type, direction) {
+  if (direction === "cost") return type === "money" ? "支出" : "消耗";
+  if (type === "attr") return "恢复";
+  return "获得";
+}
+
+function toastIcon(type, direction) {
+  if (type === "xp") return "XP";
+  if (type === "money") return direction === "cost" ? "-" : "¥";
+  return direction === "cost" ? "-" : "+";
+}
+
+function formatToastAmount(value) {
+  return String(Math.round(value));
+}
+
+function trimToastStack() {
+  const nodes = Array.from(DOM.toastStack.querySelectorAll(".toast"));
+  while (nodes.length > MAX_VISIBLE_TOASTS) {
+    const removed = nodes.shift();
+    if (!removed) break;
+    const toastKey = removed.dataset.toastKey;
+    if (toastKey && activeToasts.has(toastKey)) {
+      clearTimeout(activeToasts.get(toastKey).timer);
+      activeToasts.delete(toastKey);
+    }
+    removed.remove();
+  }
 }
 
 function escapeHtml(value) {

@@ -990,46 +990,47 @@ h3 {
 .toast-stack {
   position: fixed;
   left: 50%;
-  bottom: 22px;
+  bottom: 18px;
   z-index: 30;
   display: flex;
-  width: min(420px, calc(100vw - 28px));
+  width: min(360px, calc(100vw - 24px));
   flex-direction: column-reverse;
-  gap: 8px;
+  gap: 5px;
   pointer-events: none;
   transform: translateX(-50%);
 }
 
 .toast {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-columns: 26px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-  min-height: 54px;
-  padding: 8px 12px;
+  gap: 7px;
+  min-height: 34px;
+  padding: 4px 9px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   background: rgba(17, 23, 34, 0.94);
   color: var(--ink);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38);
-  animation: toast-rise 0.5s linear forwards;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+  animation: toast-rise 1s linear forwards;
   backdrop-filter: blur(10px);
 }
 
 .toast-icon {
-  width: 34px;
-  height: 34px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 900;
 }
 
 .toast-copy {
   min-width: 0;
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
 }
 
 .toast-copy strong,
@@ -1040,12 +1041,30 @@ h3 {
 }
 
 .toast-copy strong {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .toast-copy span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
+}
+
+.toast-gain {
+  border-color: rgba(50, 182, 166, 0.44);
+}
+
+.toast-gain .toast-icon {
+  background: rgba(50, 182, 166, 0.18);
+  color: #83f0b2;
+}
+
+.toast-cost {
+  border-color: rgba(216, 92, 74, 0.55);
+}
+
+.toast-cost .toast-icon {
+  background: rgba(216, 92, 74, 0.18);
+  color: #f2a08f;
 }
 
 .toast-xp {
@@ -1057,13 +1076,22 @@ h3 {
   color: #9ec9ff;
 }
 
-.toast-money {
+.toast-money.toast-gain {
   border-color: rgba(201, 138, 23, 0.48);
 }
 
-.toast-money .toast-icon {
+.toast-money.toast-gain .toast-icon {
   background: rgba(201, 138, 23, 0.18);
   color: #f0c875;
+}
+
+.toast-money.toast-cost {
+  border-color: rgba(216, 92, 74, 0.55);
+}
+
+.toast-money.toast-cost .toast-icon {
+  background: rgba(216, 92, 74, 0.18);
+  color: #f2a08f;
 }
 
 @keyframes toast-rise {

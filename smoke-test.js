@@ -57,6 +57,40 @@ if (state.social.action?.npcId !== "father" || state.social.action?.actionId !==
   throw new Error("social action did not continue idling after settlement");
 }
 
+class FakeToastNode {
+  constructor() {
+    this.children = [];
+    this.className = "";
+    this.dataset = {};
+    this.innerHTML = "";
+    this.isConnected = false;
+    this.parent = null;
+  }
+  appendChild(node) {
+    node.parent = this;
+    node.isConnected = true;
+    this.children.push(node);
+    return node;
+  }
+  remove() {
+    this.isConnected = false;
+    if (this.parent) this.parent.children = this.parent.children.filter(item => item !== this);
+  }
+  querySelectorAll(selector) {
+    return selector === ".toast" ? this.children.filter(item => item.className.includes("toast")) : [];
+  }
+}
+DOM.toastStack = new FakeToastNode();
+document.createElement = () => new FakeToastNode();
+showToast({ type: "xp", direction: "gain", key: "xp:test", target: "基础数学经验", amount: 17, unit: "点", verb: "获得" });
+showToast({ type: "xp", direction: "gain", key: "xp:test", target: "基础数学经验", amount: 21, unit: "点", verb: "获得" });
+if (DOM.toastStack.children.length !== 1) {
+  throw new Error("same toast key did not aggregate into one node");
+}
+if (!DOM.toastStack.children[0].innerHTML.includes("获得基础数学经验38点")) {
+  throw new Error("same toast key did not aggregate amount");
+}
+
 checkAchievements();
 checkUnlocks(state);
 console.log(JSON.stringify({
@@ -74,6 +108,7 @@ console.log(JSON.stringify({
   fatherFriendship: getNpcRecord("father").friendship,
   socialRootXpGained: totalSkillXp(state.skills["LIFE.SOCIAL.ROOT.001"]) - socialRootBefore,
   inventoryItems: Object.keys(state.inventory).length,
+  aggregatedToastCount: DOM.toastStack.children.length,
   activeSocialAction: state.social.action,
   lastSettlement: state.lastSettlement,
   logs: state.logs.length
@@ -91,6 +126,7 @@ const context = {
     addEventListener() {},
     getElementById() { return null; },
     querySelectorAll() { return []; },
+    createElement: null,
   },
   confirm() { return true; },
   Date,
