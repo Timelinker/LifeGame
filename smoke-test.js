@@ -10,6 +10,20 @@ const appCode = fs.readFileSync(appPath, "utf8");
 const testCode = `
 state = createNewState();
 queueEventsFor(state, "stage_enter", 1);
+const coreResourceKeys = RESOURCES.map(item => item.key).join(",");
+if (coreResourceKeys !== "money,reputation,careerLevel,stamina,happiness,morality") {
+  throw new Error("core resources did not match the economy redesign: " + coreResourceKeys);
+}
+if (state.resources.stamina !== 1000 || state.resources.morality !== 0) {
+  throw new Error("new game did not start with expected stamina or morality");
+}
+DOM.topResourceBar = { innerHTML: "" };
+renderTopResourceBar();
+["金钱", "声望", "职级", "体力", "幸福感", "道德"].forEach(label => {
+  if (!DOM.topResourceBar.innerHTML.includes(label)) {
+    throw new Error("top resource bar missing " + label);
+  }
+});
 
 const mathBefore = totalSkillXp(state.skills["KNOWLEDGE.MATH.ROOT.001"]);
 const tickXp = completeTrainingTick("smoke-training", true);
@@ -27,7 +41,8 @@ if (state.day <= 1 || state.stats.studyStreak < 2) {
   throw new Error("training loop did not advance day or study streak");
 }
 
-const energyBeforeSocial = state.attrs.energy;
+const staminaBeforeSocial = state.resources.stamina;
+const reputationBeforeSocial = state.resources.reputation;
 const friendshipBefore = getNpcRecord("father").friendship;
 const socialRootBefore = totalSkillXp(state.skills["LIFE.SOCIAL.ROOT.001"]);
 const father = getSocialNpc("father");
@@ -47,8 +62,11 @@ if ((state.inventory["item.family.advice"] || 0) <= 0) {
 if (getNpcRecord("father").friendship <= friendshipBefore) {
   throw new Error("social action did not increase NPC friendship");
 }
-if (state.attrs.energy >= energyBeforeSocial) {
-  throw new Error("social action did not consume energy");
+if (state.resources.stamina >= staminaBeforeSocial) {
+  throw new Error("social action did not consume stamina");
+}
+if (state.resources.reputation <= reputationBeforeSocial) {
+  throw new Error("social action did not increase reputation");
 }
 if (totalSkillXp(state.skills["LIFE.SOCIAL.ROOT.001"]) <= socialRootBefore) {
   throw new Error("social action did not add communication XP");
@@ -90,6 +108,8 @@ if (DOM.toastStack.children.length !== 1) {
 if (!DOM.toastStack.children[0].innerHTML.includes("获得基础数学经验38点")) {
   throw new Error("same toast key did not aggregate amount");
 }
+activeToasts.forEach(item => clearTimeout(item.timer));
+activeToasts.clear();
 
 checkAchievements();
 checkUnlocks(state);
@@ -107,6 +127,9 @@ console.log(JSON.stringify({
   studyStreak: state.stats.studyStreak,
   fatherFriendship: getNpcRecord("father").friendship,
   socialRootXpGained: totalSkillXp(state.skills["LIFE.SOCIAL.ROOT.001"]) - socialRootBefore,
+  stamina: state.resources.stamina,
+  reputation: state.resources.reputation,
+  morality: state.resources.morality,
   inventoryItems: Object.keys(state.inventory).length,
   aggregatedToastCount: DOM.toastStack.children.length,
   activeSocialAction: state.social.action,

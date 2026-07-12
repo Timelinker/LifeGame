@@ -312,7 +312,7 @@ h3 {
 
 .top-resource-bar {
   display: grid;
-  grid-template-columns: repeat(8, minmax(68px, 1fr));
+  grid-template-columns: repeat(6, minmax(76px, 1fr));
   gap: 6px;
   flex: 1 1 auto;
   min-width: 360px;

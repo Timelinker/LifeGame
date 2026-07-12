@@ -31,7 +31,6 @@ const SCENES = {
 
 const ATTRS = [
   { key: "health", name: "健康", color: "#4f8f46" },
-  { key: "energy", name: "精力", color: "#1a8a8a" },
   { key: "intelligence", name: "智力", color: "#4267b2" },
   { key: "creativity", name: "创造力", color: "#d85c4a" },
   { key: "charm", name: "魅力", color: "#7357a5" },
@@ -42,12 +41,11 @@ const ATTRS = [
 
 const RESOURCES = [
   { key: "money", name: "金钱" },
-  { key: "knowledge", name: "知识点" },
-  { key: "inspiration", name: "灵感" },
-  { key: "social", name: "社交资本" },
-  { key: "stress", name: "压力" },
-  { key: "happiness", name: "幸福感" },
   { key: "reputation", name: "声望" },
+  { key: "careerLevel", name: "职级" },
+  { key: "stamina", name: "体力" },
+  { key: "happiness", name: "幸福感" },
+  { key: "morality", name: "道德" },
 ];
 
 const ACTIONS = {
@@ -55,8 +53,8 @@ const ACTIONS = {
     name: "学习",
     scene: "SCHOOL",
     xp: 24,
-    cost: { energy: -11, stress: 4 },
-    reward: { knowledge: 6 },
+    cost: { stamina: -11 },
+    reward: {},
     attrs: { intelligence: 0.25, discipline: 0.18 },
     domains: ["KNOWLEDGE", "TECH", "ART"],
   },
@@ -64,8 +62,8 @@ const ACTIONS = {
     name: "练习",
     scene: "STUDIO",
     xp: 22,
-    cost: { energy: -10, stress: 2 },
-    reward: { inspiration: 2 },
+    cost: { stamina: -10 },
+    reward: {},
     attrs: { creativity: 0.24, discipline: 0.14 },
     domains: ["ART", "HEALTH", "TECH", "LIFE"],
   },
@@ -73,8 +71,8 @@ const ACTIONS = {
     name: "工作",
     scene: "WORKING",
     xp: 18,
-    cost: { energy: -14, stress: 7 },
-    reward: { money: 36, social: 1 },
+    cost: { stamina: -14, happiness: -4 },
+    reward: { money: 36 },
     attrs: { discipline: 0.16, charm: 0.08 },
     domains: ["CAREER", "TECH", "KNOWLEDGE", "LIFE", "ART"],
   },
@@ -82,8 +80,8 @@ const ACTIONS = {
     name: "创作",
     scene: "STUDIO",
     xp: 20,
-    cost: { energy: -12, inspiration: -4, stress: 3 },
-    reward: { reputation: 1 },
+    cost: { stamina: -12, happiness: -2 },
+    reward: { reputation: 6 },
     attrs: { creativity: 0.28, stability: 0.08 },
     domains: ["ART", "CAREER", "TECH", "LIFE"],
   },
@@ -91,8 +89,8 @@ const ACTIONS = {
     name: "社交",
     scene: "COMMUNITY",
     xp: 14,
-    cost: { energy: -8, money: -6 },
-    reward: { social: 5, happiness: 3 },
+    cost: { stamina: -8, money: -6 },
+    reward: { reputation: 4, happiness: 6 },
     attrs: { charm: 0.24, stability: 0.08 },
     domains: ["LIFE", "CAREER", "ART"],
   },
@@ -101,7 +99,7 @@ const ACTIONS = {
     scene: "FAMILY",
     xp: 0,
     cost: {},
-    reward: { energy: 24, stress: -12, health: 2, happiness: 1 },
+    reward: { stamina: 24, health: 2, happiness: 6 },
     attrs: { stability: 0.18 },
     domains: [],
   },
@@ -109,8 +107,8 @@ const ACTIONS = {
     name: "探索",
     scene: "ONLINE",
     xp: 13,
-    cost: { energy: -10, money: -4 },
-    reward: { inspiration: 6, knowledge: 1 },
+    cost: { stamina: -10, money: -4 },
+    reward: { reputation: 2 },
     attrs: { creativity: 0.12, charm: 0.1 },
     domains: ["KNOWLEDGE", "TECH", "ART", "LIFE", "HEALTH", "CAREER"],
   },
@@ -118,8 +116,8 @@ const ACTIONS = {
     name: "锻炼",
     scene: "COMMUNITY",
     xp: 20,
-    cost: { energy: -12 },
-    reward: { health: 3, stress: -4 },
+    cost: { stamina: -12 },
+    reward: { health: 3, happiness: 4 },
     attrs: { fitness: 0.28, discipline: 0.1 },
     domains: ["HEALTH", "LIFE"],
   },
@@ -163,7 +161,7 @@ const SOCIAL_NPCS = [
     socialBonus(30, 0.45, [effSkill("KNOWLEDGE.MATH.ROOT.001", 16)], "老师额外讲解了一个数学问题。"),
     socialBonus(60, 0.25, [effSkill("KNOWLEDGE.MATH.BASIC.001", 20)], "老师帮你整理了算术训练思路。"),
   ]),
-  npc("classmate", "school", "同学", "校园伙伴", "同学关系会带来社交资本和校园情报。", 8, 0, 13, [{ id: "item.classmate.gossip", qty: 1 }], [
+  npc("classmate", "school", "同学", "校园伙伴", "同学关系会带来声望和校园情报。", 8, 0, 13, [{ id: "item.classmate.gossip", qty: 1 }], [
     socialBonus(30, 0.45, [effResource("social", 3)], "同学把你拉进了新的小圈子。"),
   ]),
   npc("neighbour", "park", "邻居", "闲聊对象", "低成本社交对象，适合积累轻关系。", 6, 0, 10, [{ id: "item.park.leaf", qty: 1 }], [
@@ -396,7 +394,7 @@ const EVENTS = [
     choice("保持距离", [effResource("stress", -4), effSkill("LIFE.SOCIAL.BASIC.001", 30)], "你保留了自己的节奏。"),
   ]),
   event("work_promotion_001", "晋升机会", "主管暗示有一个更复杂的项目可以交给你。", ["monthly_check"], ["work"], [reqSkill("CAREER.BASIC.BASIC.002", 3), reqSkill("CAREER.MANAGEMENT.BRANCH.001", 2)], 18, 240, false, [
-    choice("争取晋升", [effResource("money", 260), effResource("stress", 10), effResource("reputation", 4), effSkill("CAREER.MANAGEMENT.BRANCH.001", 80)], "责任更重，天花板也更高。"),
+    choice("争取晋升", [effResource("careerLevel", 1), effResource("money", 260), effResource("happiness", -4), effResource("reputation", 4), effSkill("CAREER.MANAGEMENT.BRANCH.001", 80)], "责任更重，天花板也更高。"),
     choice("保持当前节奏", [effResource("happiness", 6), effResource("stress", -6)], "你选择让生活留一点空间。"),
   ]),
   event("work_side_project_001", "下班后的项目", "脑子里有个小项目，不做会一直惦记。", ["weekly_check"], ["work"], [anyOf([reqSkill("TECH.PROGRAMMING.BASIC.001", 3), reqSkill("CAREER.CREATOR.APPLICATION.001", 2)])], 24, 120, false, [
@@ -420,12 +418,12 @@ const EVENTS = [
     choice("继续积累", [effSkill("CAREER.BASIC.ROOT.001", 60), effResource("stress", -2)], "稳扎稳打也能带来复利。"),
   ]),
 
-  event("state_low_energy_001", "精力透支", "你的注意力开始断线，身体在催你停一停。", ["resource_state"], ["teen", "college", "work"], [reqAttrMax("energy", 15)], 70, 60, false, [
+  event("state_low_energy_001", "体力透支", "你的注意力开始断线，身体在催你停一停。", ["resource_state"], ["teen", "college", "work"], [reqAttrMax("energy", 15)], 70, 60, false, [
     choice("好好睡觉", [effSkill("HEALTH.MIND.APPLICATION.001", 70), effAttr("energy", 26), effResource("stress", -10)], "睡眠重新接管了修复工作。"),
     choice("继续硬撑", [effResource("knowledge", 12), effAttr("health", -4), effResource("stress", 6)], "短期收益换来长期代价。"),
   ]),
-  event("state_high_stress_001", "压力临界点", "压力像背景噪音一样盖住了其他感受。", ["resource_state"], ["teen", "college", "work"], [reqResource("stress", 75)], 75, 90, false, [
-    choice("调整节奏", [effSkill("LIFE.MIND.BASIC.001", 80), effResource("stress", -18), effResource("happiness", 3)], "你开始学习和压力相处。"),
+  event("state_high_stress_001", "幸福感低谷", "生活质量开始发出提醒，继续硬撑会让效率变差。", ["resource_state"], ["teen", "college", "work"], [reqResourceMax("happiness", 30)], 75, 90, false, [
+    choice("调整节奏", [effSkill("LIFE.MIND.BASIC.001", 80), effResource("happiness", 12)], "你开始学习照顾自己的状态。"),
     choice("压榨自己", [effResource("knowledge", 18), effResource("happiness", -8), effAttr("health", -4)], "效率上去了，生活颜色淡了一些。"),
   ]),
   event("state_inspiration_001", "灵感爆发", "灵感突然涌出来，像是很多线索终于连在一起。", ["resource_state"], ["teen", "college", "work"], [reqResource("inspiration", 60)], 35, 90, false, [
@@ -488,16 +486,16 @@ const ACHIEVEMENTS = [
   achievement("achievement_math_fan", "数学爱好者", "数学技能任一达到 8 级", s => skillIdsByBranch("数学").some(id => getLevel(s, id) >= 8), [effResource("knowledge", 30)]),
   achievement("achievement_artist", "初露审美", "艺术技能任一达到 5 级", s => SKILLS.some(k => k.domain === "ART" && getLevel(s, k.id) >= 5), [effResource("inspiration", 20)]),
   achievement("achievement_programmer", "代码成形", "编程入门达到 5 级", s => getLevel(s, "TECH.PROGRAMMING.BASIC.001") >= 5, [effResource("reputation", 2)]),
-  achievement("achievement_social", "社交连接", "社交资本达到 50", s => s.resources.social >= 50, [effTag("social_connector")]),
+  achievement("achievement_social", "社交连接", "声望达到 50", s => s.resources.reputation >= 50, [effTag("social_connector")]),
   achievement("achievement_health", "健康生活家", "健康、体能都达到 70", s => s.attrs.health >= 70 && s.attrs.fitness >= 70, [effResource("happiness", 8)]),
-  achievement("achievement_pressure", "压力管理", "压力从 75 以上降回 35 以下", s => s.tags.stress_peak && s.resources.stress <= 35, [effSkill("LIFE.MIND.BASIC.001", 80)]),
+  achievement("achievement_pressure", "情绪复原", "幸福感从低谷恢复到 60 以上", s => s.tags.stress_peak && s.resources.happiness >= 60, [effSkill("LIFE.MIND.BASIC.001", 80)]),
   achievement("achievement_first_work_001", "第一件作品", "作品进度达到 100", s => s.projectProgress >= 100, [effResource("reputation", 10), effResource("social", 8)]),
   achievement("achievement_cross", "跨界新人", "3 个领域各有 3 级技能", s => domainCountAt(s, 3) >= 3, [effResource("inspiration", 18)]),
   achievement("achievement_career_ready", "职业资格", "解锁任意正式职业", s => CAREERS.some(c => c.id !== "none" && meetsAll(s, c.requirements)), [effResource("money", 150)]),
   achievement("achievement_data_path", "数据路径", "解锁数据分析", s => isUnlocked(s, "KNOWLEDGE.MATH.PRO.001"), [effResource("knowledge", 16)]),
   achievement("achievement_creator_path", "创作者路径", "解锁内容创作", s => isUnlocked(s, "CAREER.CREATOR.APPLICATION.001"), [effResource("inspiration", 16)]),
   achievement("achievement_money_1000", "第一桶金", "金钱达到 1000", s => s.resources.money >= 1000, [effResource("happiness", 5)]),
-  achievement("achievement_reputation", "有人记得你", "声望达到 20", s => s.resources.reputation >= 20, [effResource("social", 12)]),
+  achievement("achievement_reputation", "有人记得你", "声望达到 20", s => s.resources.reputation >= 20, [effResource("happiness", 4)]),
   achievement("achievement_stage_master", "阶段复盘", "完成两次阶段转换", s => s.stats.stageTransitions >= 2, [effResource("knowledge", 20), effResource("happiness", 5)]),
 ];
 
@@ -509,6 +507,7 @@ let realtimeFrame = null;
 let toastSerial = 0;
 const TOAST_TTL_MS = 3000;
 const MAX_VISIBLE_TOASTS = 4;
+const BASE_STAMINA_MAX = 1000;
 const activeToasts = new Map();
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -727,7 +726,6 @@ function createNewState() {
     sceneId: "SCHOOL",
     attrs: {
       health: 72,
-      energy: 76,
       intelligence: 45,
       creativity: 42,
       charm: 40,
@@ -737,15 +735,22 @@ function createNewState() {
     },
     resources: {
       money: 200,
+      reputation: 0,
+      careerLevel: 0,
+      stamina: BASE_STAMINA_MAX,
+      happiness: 55,
+      morality: 0,
       knowledge: 0,
-      inspiration: 15,
+      inspiration: 0,
       social: 5,
       stress: 20,
-      happiness: 55,
-      reputation: 0,
     },
     skills: {},
     careerId: "none",
+    careerRank: {
+      tier: 1,
+      step: 1,
+    },
     social: {
       sceneId: "family",
       npcId: "father",
@@ -822,6 +827,17 @@ function migrateState(loaded) {
   const merged = { ...fresh, ...loaded };
   merged.attrs = { ...fresh.attrs, ...(loaded.attrs || {}) };
   merged.resources = { ...fresh.resources, ...(loaded.resources || {}) };
+  if (!loaded.resources?.stamina && loaded.attrs?.energy !== undefined) {
+    merged.resources.stamina = clamp(Math.round(loaded.attrs.energy * 10), 0, BASE_STAMINA_MAX);
+  }
+  if (loaded.resources?.social && !loaded.resources?.reputation) {
+    merged.resources.reputation = Math.max(merged.resources.reputation || 0, Math.round(loaded.resources.social));
+  }
+  delete merged.attrs.energy;
+  merged.resources.careerLevel = careerRankValue(merged);
+  merged.resources.stamina = clamp(merged.resources.stamina ?? BASE_STAMINA_MAX, 0, getMaxStamina(merged));
+  merged.resources.happiness = clamp(merged.resources.happiness ?? 55, 0, 100);
+  merged.resources.morality = clamp(merged.resources.morality ?? 0, -100, 100);
   merged.stats = { ...fresh.stats, ...(loaded.stats || {}) };
   merged.skills = { ...fresh.skills, ...(loaded.skills || {}) };
   SKILLS.forEach(item => {
@@ -839,6 +855,11 @@ function migrateState(loaded) {
     merged.social.action = null;
   }
   merged.inventory = { ...fresh.inventory, ...(loaded.inventory || {}) };
+  merged.careerRank = {
+    ...fresh.careerRank,
+    ...(loaded.careerRank || {}),
+  };
+  merged.resources.careerLevel = careerRankValue(merged);
   delete merged.schedule;
   merged.training = loaded.training || fresh.training;
   if (!merged.training.skillId || !merged.skills[merged.training.skillId]?.unlocked) {
@@ -1006,7 +1027,7 @@ function updateDailyTrainingStats(actionId) {
   state.stats.totalStudyDays = (state.stats.totalStudyDays || 0) + (studied ? 1 : 0);
   state.stats.workStreak = worked ? (state.stats.workStreak || 0) + 1 : 0;
   if (state.stats.workStreak >= 5) state.tags.worked_5_days = true;
-  if (state.resources.stress >= 75) state.tags.stress_peak = true;
+  if ((state.resources.stress || 0) >= 75 || state.resources.happiness <= 25) state.tags.stress_peak = true;
 }
 
 function startTraining(skillId) {
@@ -1118,11 +1139,20 @@ function updateSocialProgress() {
 }
 
 function recoverDaily() {
-  addResource("stress", -1);
-  addResource("happiness", state.resources.stress > 75 ? -1 : 0);
-  if (state.attrs.energy < 25) addAttr("stability", -1);
-  state.attrs.energy = clamp(state.attrs.energy, 0, 100);
+  applyMonthlyIncome();
+  if (state.resources.happiness < 35) addAttr("stability", -1);
+  if (state.day % 12 === 0 && state.resources.reputation > 0) {
+    addResource("reputation", -Math.max(1, Math.floor(state.resources.reputation * 0.05)));
+  }
+  state.resources.stamina = clamp(state.resources.stamina, 0, getMaxStamina(state));
   state.attrs.health = clamp(state.attrs.health, 0, 100);
+}
+
+function applyMonthlyIncome() {
+  const income = getMonthlyIncome(state);
+  if (income <= 0) return;
+  addResource("money", income);
+  pushLog(state.stageId === "work" ? `工资入账：金钱 +${income}` : `获得零花钱：金钱 +${income}`);
 }
 
 function applyResourceBundle(bundle = {}) {
@@ -1137,25 +1167,43 @@ function applyAttrBundle(bundle = {}) {
 }
 
 function addResource(key, amount, options = {}) {
-  if (!(key in state.resources)) return;
-  const before = state.resources[key];
-  state.resources[key] = Math.round(clamp(before + amount, key === "stress" ? 0 : -9999, key === "stress" || key === "happiness" ? 100 : 999999));
-  const gained = state.resources[key] - before;
-  if (options.toast && key === "money" && gained !== 0) {
-    const direction = gained > 0 ? "gain" : "cost";
+  if (!state?.resources) return;
+  if (key === "careerLevel") {
+    changeCareerLevel(amount, options);
+    return;
+  }
+
+  const hiddenKey = ["knowledge", "inspiration", "social", "stress"].includes(key) ? key : "";
+  if (hiddenKey) {
+    const beforeHidden = state.resources[hiddenKey] || 0;
+    state.resources[hiddenKey] = Math.round(clamp(beforeHidden + amount, hiddenKey === "stress" ? 0 : -9999, hiddenKey === "stress" ? 100 : 999999));
+  }
+
+  const normalized = normalizeResourceEffect(key, amount);
+  if (!normalized || !(normalized.key in state.resources)) return;
+  const before = state.resources[normalized.key];
+  state.resources[normalized.key] = Math.round(clamp(before + normalized.amount, resourceMin(normalized.key), resourceMax(normalized.key)));
+  const changed = state.resources[normalized.key] - before;
+  if (options.toast && changed !== 0 && isCoreResource(normalized.key)) {
+    const direction = changed > 0 ? "gain" : "cost";
     showToast({
-      type: "money",
+      type: normalized.key === "money" ? "money" : "attr",
       direction,
-      key: `resource:${key}:${direction}`,
-      target: resourceName(key),
-      amount: Math.abs(gained),
-      verb: direction === "gain" ? "获得" : "支出",
+      key: `resource:${normalized.key}:${direction}`,
+      target: resourceName(normalized.key),
+      amount: Math.abs(changed),
+      unit: normalized.key === "money" ? "" : "点",
+      verb: resourceToastVerb(normalized.key, direction),
       detail: options.source || "",
     });
   }
 }
 
 function addAttr(key, amount, options = {}) {
+  if (key === "energy") {
+    addResource("stamina", amount, options);
+    return;
+  }
   if (!(key in state.attrs)) return;
   const before = state.attrs[key];
   state.attrs[key] = Math.round(clamp(state.attrs[key] + amount, 0, 100));
@@ -1173,6 +1221,120 @@ function addAttr(key, amount, options = {}) {
       detail: options.source || "",
     });
   }
+}
+
+function normalizeResourceEffect(key, amount) {
+  switch (key) {
+    case "energy":
+      return { key: "stamina", amount };
+    case "social":
+      return { key: "reputation", amount };
+    case "stress":
+      return { key: "happiness", amount: -amount };
+    case "knowledge":
+    case "inspiration":
+      return null;
+    default:
+      return { key, amount };
+  }
+}
+
+function resourceMin(key) {
+  if (key === "money") return -9999;
+  if (key === "morality") return -100;
+  return 0;
+}
+
+function resourceMax(key) {
+  if (key === "stamina") return getMaxStamina(state);
+  if (key === "happiness") return 100;
+  if (key === "morality") return 100;
+  return 999999;
+}
+
+function isCoreResource(key) {
+  return RESOURCES.some(item => item.key === key);
+}
+
+function getMaxStamina(target = state) {
+  return BASE_STAMINA_MAX + Math.max(0, getLevel(target, "HEALTH.SPORT.BRANCH.001") - 1) * 40;
+}
+
+function resourceToastVerb(key, direction) {
+  if (key === "money") return direction === "gain" ? "获得" : "支出";
+  if (key === "stamina") return direction === "gain" ? "恢复" : "消耗";
+  if (key === "morality") return direction === "gain" ? "提升" : "降低";
+  if (key === "happiness") return direction === "gain" ? "提升" : "降低";
+  if (key === "reputation") return direction === "gain" ? "获得" : "损失";
+  return direction === "gain" ? "获得" : "消耗";
+}
+
+function changeCareerLevel(amount, options = {}) {
+  if (state.stageId !== "work") return;
+  if (!state.careerRank) state.careerRank = { tier: 1, step: 1 };
+  const before = careerRankValue(state);
+  let points = Math.round(amount);
+  while (points > 0) {
+    state.careerRank.step += 1;
+    if (state.careerRank.step > 3) {
+      state.careerRank.step = 1;
+      state.careerRank.tier += 1;
+    }
+    points -= 1;
+  }
+  while (points < 0) {
+    state.careerRank.step -= 1;
+    if (state.careerRank.step < 1) {
+      state.careerRank.tier = Math.max(1, state.careerRank.tier - 1);
+      state.careerRank.step = 3;
+    }
+    points += 1;
+  }
+  state.resources.careerLevel = careerRankValue(state);
+  const changed = state.resources.careerLevel - before;
+  if (options.toast && changed !== 0) {
+    const direction = changed > 0 ? "gain" : "cost";
+    showToast({
+      type: "info",
+      direction,
+      key: `resource:careerLevel:${direction}`,
+      target: "职级",
+      amount: Math.abs(amount),
+      verb: direction === "gain" ? "晋升" : "降级",
+      detail: getCareerLevelLabel(state),
+    });
+  }
+}
+
+function careerRankValue(target = state) {
+  const rank = target.careerRank || { tier: 1, step: 1 };
+  if (target.stageId !== "work" || target.careerId === "none") return 0;
+  return rank.tier * 10 + rank.step;
+}
+
+function getCareerLevelLabel(target = state) {
+  if (target.stageId !== "work" || target.careerId === "none") return "无";
+  const rank = target.careerRank || { tier: 1, step: 1 };
+  return `${rank.tier}-${rank.step}`;
+}
+
+function getCareerLevelName(target = state) {
+  if (target.stageId !== "work" || target.careerId === "none") return "学生";
+  const rank = target.careerRank || { tier: 1, step: 1 };
+  if (rank.tier >= 4) return "总监";
+  if (rank.tier >= 3) return "高级";
+  if (rank.tier >= 2) return "中级";
+  return "初级";
+}
+
+function getMonthlyIncome(target = state, careerItem = getCareer(target.careerId)) {
+  if (!careerItem || careerItem.id === "none") {
+    return target.stageId === "college" ? 60 : 36;
+  }
+  if (target.stageId !== "work") return careerItem.income;
+  const rank = target.careerRank || { tier: 1, step: 1 };
+  const multiplier = 1 + (rank.tier - 1) * 0.35 + (rank.step - 1) * 0.12;
+  return Math.round(careerItem.income * multiplier);
 }
 
 function addSkillXp(id, amount, source = "成长", boostInfo = null, options = {}) {
@@ -1237,10 +1399,11 @@ function getSceneMultiplier(skillItem, sceneId) {
 
 function getStatusModifier() {
   let modifier = 1;
-  if (state.attrs.energy < 20) modifier *= 0.7;
-  if (state.resources.stress > 70) modifier *= 0.8;
+  if (state.resources.stamina < 80) modifier *= 0.65;
+  else if (state.resources.stamina < 180) modifier *= 0.85;
   if (state.attrs.health < 35) modifier *= 0.8;
-  if (state.resources.happiness > 70) modifier *= 1.1;
+  if (state.resources.happiness < 30) modifier *= 0.9;
+  if (state.resources.happiness > 70) modifier *= 1.05;
   return modifier;
 }
 
@@ -1266,6 +1429,7 @@ function refreshStage(target, shouldQueue) {
   const oldStage = target.stageId;
   const stage = STAGES.find(item => target.age >= item.minAge && target.age <= item.maxAge) || STAGES[2];
   target.stageId = stage.id;
+  if (target.resources) target.resources.careerLevel = careerRankValue(target);
   if (oldStage !== target.stageId) {
     target.sceneId = stage.defaultScene;
     target.stats.stageTransitions += 1;
@@ -1315,13 +1479,13 @@ function meets(target, req) {
     case "skill":
       return getLevel(target, req.id) >= req.level;
     case "attr":
-      return (target.attrs[req.key] || 0) >= req.value;
+      return getAttrValue(target, req.key) >= req.value;
     case "attrMax":
-      return (target.attrs[req.key] || 0) <= req.value;
+      return getAttrValue(target, req.key) <= req.value;
     case "resource":
-      return (target.resources[req.key] || 0) >= req.value;
+      return getResourceValue(target, req.key) >= req.value;
     case "resourceMax":
-      return (target.resources[req.key] || 0) <= req.value;
+      return getResourceValue(target, req.key) <= req.value;
     case "stage":
       return stageIndex(target.stageId) >= stageIndex(req.id);
     case "event":
@@ -1343,6 +1507,19 @@ function meets(target, req) {
     default:
       return true;
   }
+}
+
+function getAttrValue(target, key) {
+  if (key === "energy") return Math.floor((target.resources?.stamina || 0) / 10);
+  return target.attrs?.[key] || 0;
+}
+
+function getResourceValue(target, key) {
+  if (key === "energy") return target.resources?.stamina || 0;
+  if (key === "careerLevel") return careerRankValue(target);
+  if (key === "social") return Math.max(target.resources?.social || 0, target.resources?.reputation || 0);
+  if (key === "stress") return target.resources?.stress ?? Math.max(0, 100 - (target.resources?.happiness || 0));
+  return target.resources?.[key] || 0;
 }
 
 function queueEvents(trigger, limit = 1) {
@@ -1390,7 +1567,7 @@ function weightedPick(items, target = state) {
 function getEventWeight(item, target = state) {
   let weight = item.weight;
   if (target.tags.disciplined && item.id.includes("pressure")) weight -= 6;
-  if (target.resources.stress > 70 && item.triggers.includes("resource_state")) weight += 8;
+  if (target.resources.happiness < 30 && item.triggers.includes("resource_state")) weight += 8;
   if (target.resources.inspiration > 55 && item.id.includes("inspiration")) weight += 10;
   return Math.max(1, weight);
 }
@@ -1464,7 +1641,7 @@ function startSocialAction(npcId, actionId = "talk", shouldRender = true) {
   state.social.sceneId = npcItem.sceneId;
   state.social.npcId = npcItem.id;
   if (!canSocialize(npcItem, actionItem.id)) {
-    pushLog(`${npcItem.name}：精力或金钱不足，无法开始${actionItem.name}。`);
+    pushLog(`${npcItem.name}：体力或金钱不足，无法开始${actionItem.name}。`);
     if (shouldRender) render();
     return false;
   }
@@ -1491,15 +1668,15 @@ function socializeWithNpc(npcId, shouldRender = true, actionId = "talk", showGai
 
   const profile = getSocialActionProfile(npcItem, actionItem);
   if (!canSocialize(npcItem, actionItem.id)) {
-    pushLog(`${npcItem.name}：精力或金钱不足，${actionItem.name}已停止。`);
+    pushLog(`${npcItem.name}：体力或金钱不足，${actionItem.name}已停止。`);
     if (shouldSave) saveState();
     if (shouldRender) render();
     return false;
   }
 
-  addAttr("energy", -profile.energyCost, { toast: showGainToast, source: actionItem.name });
+  addResource("stamina", -profile.energyCost, { toast: showGainToast, source: actionItem.name });
   if (profile.moneyCost > 0) addResource("money", -profile.moneyCost, { toast: showGainToast, source: actionItem.name });
-  addResource("social", 1);
+  addResource("reputation", 1);
   applySocialSkillEffects(profile.skillXp, `${npcItem.name}：${actionItem.name}`, showGainToast);
 
   const record = getNpcRecord(npcItem.id);
@@ -1598,7 +1775,7 @@ function canSocialize(npcItem, actionId = "talk") {
   const actionItem = getSocialAction(actionId);
   if (!npcItem || !actionItem) return false;
   const profile = getSocialActionProfile(npcItem, actionItem);
-  return state.attrs.energy >= profile.energyCost
+  return state.resources.stamina >= profile.energyCost
     && state.resources.money >= profile.moneyCost;
 }
 
@@ -1641,18 +1818,18 @@ function renderNav() {
 function renderShell() {
   const stage = getStage(state.stageId);
   DOM.stageLabel.textContent = stage.name;
-  DOM.metaLine.textContent = `${state.age} 岁 · 第 ${state.day} 天 · ${SCENES[state.sceneId]?.name || "未知场景"} · ${getCareer(state.careerId).name}`;
+  DOM.metaLine.textContent = `${state.age} 岁 · 第 ${state.day} 月 · ${SCENES[state.sceneId]?.name || "未知场景"} · ${getCareer(state.careerId).name} · 职级 ${getCareerLevelLabel(state)}`;
 }
 
 function renderTopResourceBar() {
-  const shown = ["energy", "money", "knowledge", "inspiration", "social", "stress", "happiness", "reputation"];
+  const shown = RESOURCES.map(item => item.key);
   DOM.topResourceBar.innerHTML = shown.map(key => {
-    const value = key in state.attrs ? state.attrs[key] : (state.resources[key] ?? 0);
-    const warning = (key === "stress" && state.resources.stress > 70) || (key === "energy" && state.attrs.energy < 20);
+    const value = getDisplayResourceValue(key);
+    const warning = (key === "stamina" && state.resources.stamina < 100) || (key === "happiness" && state.resources.happiness < 30);
     return `
     <div class="top-resource ${warning ? "warning" : ""}">
       <span>${resourceName(key)}</span>
-      <strong>${Math.round(value)}</strong>
+      <strong>${value}</strong>
     </div>
   `;
   }).join("");
@@ -1703,8 +1880,8 @@ function renderNotices() {
   const notices = [];
   if (state.lastSettlement?.skillText) notices.push(state.lastSettlement.skillText);
   if (state.eventQueue.length) notices.push(`有 ${state.eventQueue.length} 个事件等待选择。`);
-  if (state.resources.stress > 70) notices.push("压力偏高，收益下降，负面事件概率上升。");
-  if (state.attrs.energy < 20) notices.push("精力偏低，挂机效率会明显下降。");
+  if (state.resources.happiness < 30) notices.push("幸福感偏低，收益和事件倾向会变差。");
+  if (state.resources.stamina < 100) notices.push("体力偏低，挂机效率会明显下降。");
   if (state.projectProgress >= 100 && !state.achievements.achievement_first_work_001) notices.push("作品已经完成，可以触发作品成就。");
   DOM.noticeRow.innerHTML = notices.slice(0, 3).map(item => `<div class="notice">${item}</div>`).join("");
 }
@@ -1715,7 +1892,7 @@ function renderHome() {
   DOM.resourceGrid.innerHTML = RESOURCES.map(item => `
     <div class="resource-chip">
       <span>${item.name}</span>
-      <strong>${state.resources[item.key] ?? 0}</strong>
+      <strong>${getDisplayResourceValue(item.key)}</strong>
     </div>
   `).join("");
 
@@ -1941,7 +2118,7 @@ function renderNpcDetail(npcItem) {
   }).join("");
   const canAct = canSocialize(npcItem, actionItem.id);
   const costs = [
-    `精力 -${profile.energyCost}`,
+    `体力 -${profile.energyCost}`,
     profile.moneyCost > 0 ? `金钱 -${profile.moneyCost}` : "",
   ].filter(Boolean).join(" · ");
   const cdFillAttr = isActive ? "data-social-cd-progress" : "";
@@ -2017,7 +2194,7 @@ function renderCareers() {
         <div class="skill-head">
           <div>
             <div class="skill-name">${item.name}</div>
-            <div class="item-meta">收入 ${item.income}/月 · 压力 ${item.stress}</div>
+            <div class="item-meta">月薪 ${getMonthlyIncome(state, item)} · 当前职级 ${getCareerLevelLabel(state)}</div>
           </div>
           <span class="badge ${active ? "" : "soft"}">${active ? "当前" : available ? "可申请" : "未满足"}</span>
         </div>
@@ -2033,6 +2210,8 @@ function renderCareers() {
   DOM.careerGrid.querySelectorAll("[data-career]").forEach(button => {
     button.addEventListener("click", () => {
       state.careerId = button.dataset.career;
+      if (state.stageId === "work" && !state.careerRank) state.careerRank = { tier: 1, step: 1 };
+      state.resources.careerLevel = careerRankValue(state);
       pushLog(`职业切换为：${getCareer(state.careerId).name}`);
       saveState();
       render();
@@ -2184,9 +2363,10 @@ function getSocialAction(id) {
 }
 
 function getSocialActionProfile(npcItem, actionItem = getSocialAction("talk")) {
+  const rawEnergyCost = Math.max(0, (npcItem.energyCost || 0) + (actionItem.energyCost || 0));
   return {
     duration: Math.max(800, actionItem.duration || 3000),
-    energyCost: Math.max(0, (npcItem.energyCost || 0) + (actionItem.energyCost || 0)),
+    energyCost: rawEnergyCost ? Math.max(1, Math.round(rawEnergyCost / 4)) : 0,
     moneyCost: Math.max(0, (npcItem.moneyCost || 0) + (actionItem.moneyCost || 0)),
     friendshipGain: Math.max(0, (npcItem.friendshipGain || 0) + (actionItem.friendshipGain || 0)),
     skillXp: actionItem.skillXp || [],
@@ -2251,12 +2431,19 @@ function typeName(id) {
 }
 
 function attrName(key) {
+  if (key === "energy") return "体力";
   return ATTRS.find(item => item.key === key)?.name || key;
 }
 
 function resourceName(key) {
-  const names = { energy: "精力", health: "健康", money: "金钱", knowledge: "知识点", inspiration: "灵感", social: "社交资本", stress: "压力", happiness: "幸福感", reputation: "声望" };
+  const names = { energy: "体力", stamina: "体力", health: "健康", money: "金钱", knowledge: "知识点", inspiration: "灵感", social: "社交资本", stress: "压力", happiness: "幸福感", reputation: "声望", careerLevel: "职级", morality: "道德" };
   return names[key] || key;
+}
+
+function getDisplayResourceValue(key, target = state) {
+  if (key === "careerLevel") return getCareerLevelLabel(target);
+  const value = getResourceValue(target, key);
+  return Number.isFinite(value) ? Math.round(value) : value;
 }
 
 function eventName(id) {
@@ -2372,6 +2559,7 @@ function snapshotState() {
 function diffSnapshot(before, after, days, hours) {
   const resources = {};
   Object.keys(after.resources).forEach(key => {
+    if (!isCoreResource(key)) return;
     const diff = after.resources[key] - before.resources[key];
     if (diff) resources[key] = diff;
   });
