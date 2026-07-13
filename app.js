@@ -14,10 +14,15 @@ const NAV_ITEMS = [
 ];
 
 const STAGES = [
-  { id: "teen", name: "少年期", minAge: 13, maxAge: 17, defaultScene: "SCHOOL" },
+  { id: "teen", name: "高中期", minAge: 15, maxAge: 17, defaultScene: "SCHOOL" },
   { id: "college", name: "大学期", minAge: 18, maxAge: 22, defaultScene: "COLLEGE" },
   { id: "work", name: "职场前期", minAge: 23, maxAge: 35, defaultScene: "WORKING" },
 ];
+
+const START_AGE = 15;
+const ACADEMIC_MONTHS = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8];
+const SUBJECT_TRACK_MONTH = 10;
+const GAOKAO_MONTH = 34;
 
 const SCENES = {
   FAMILY: { name: "家庭", modifiers: { LIFE: 1.1, HEALTH: 1.1 } },
@@ -198,6 +203,18 @@ const SKILLS = [
   skill("KNOWLEDGE.MATH.APPLICATION.001", "生活理财", "KNOWLEDGE", "数学", "APPLICATION", ["FAMILY", "WORKING"], ["intelligence", "discipline"], "降低生活成本，提高储蓄效率。", [reqSkill("KNOWLEDGE.MATH.BASIC.001", 3), reqResource("money", 1000)]),
   skill("KNOWLEDGE.MATH.HIDDEN.001", "量化投资", "KNOWLEDGE", "数学", "HIDDEN", ["WORKING", "ONLINE"], ["intelligence", "discipline"], "高收益高波动的投资路线。", [reqSkill("KNOWLEDGE.MATH.BRANCH.002", 5), reqSkill("TECH.PROGRAMMING.BASIC.001", 4), reqSkill("KNOWLEDGE.MATH.APPLICATION.001", 5), reqEvent("hidden_quant_001")]),
 
+  skill("KNOWLEDGE.LANGUAGE.ROOT.001", "语文基础", "KNOWLEDGE", "语文", "ROOT", ["SCHOOL", "FAMILY"], ["intelligence", "creativity"], "提高阅读理解、语文成绩和表达类收益。", []),
+  skill("KNOWLEDGE.LANGUAGE.BASIC.001", "文学阅读", "KNOWLEDGE", "语文", "BASIC", ["SCHOOL", "FAMILY"], ["intelligence", "creativity"], "从小说、散文和古文中积累语感与叙事能力。", [reqSkill("KNOWLEDGE.LANGUAGE.ROOT.001", 1)]),
+  skill("KNOWLEDGE.ENGLISH.ROOT.001", "英语听读", "KNOWLEDGE", "英语", "ROOT", ["SCHOOL", "ONLINE"], ["intelligence", "charm"], "提高英语成绩，也会受沟通表达能力影响。", []),
+  skill("KNOWLEDGE.SCIENCE.ROOT.001", "理科基础", "KNOWLEDGE", "理科", "ROOT", ["SCHOOL"], ["intelligence", "discipline"], "连接物理、化学、生物和数学建模。", []),
+  skill("KNOWLEDGE.SCIENCE.BASIC.001", "物理直觉", "KNOWLEDGE", "理科", "BASIC", ["SCHOOL"], ["intelligence", "discipline"], "理解力、运动、能量和模型化思考。", [reqSkill("KNOWLEDGE.SCIENCE.ROOT.001", 1), reqSkill("KNOWLEDGE.MATH.ROOT.001", 2)]),
+  skill("KNOWLEDGE.SCIENCE.BASIC.002", "化学实验", "KNOWLEDGE", "理科", "BASIC", ["SCHOOL"], ["intelligence", "discipline"], "把物质变化、实验安全和观察记录连起来。", [reqSkill("KNOWLEDGE.SCIENCE.ROOT.001", 1)]),
+  skill("KNOWLEDGE.SCIENCE.BASIC.003", "生命科学", "KNOWLEDGE", "理科", "BASIC", ["SCHOOL", "COMMUNITY"], ["intelligence", "stability"], "理解身体、生态和生物系统。", [reqSkill("KNOWLEDGE.SCIENCE.ROOT.001", 2)]),
+  skill("KNOWLEDGE.HUMANITIES.ROOT.001", "人文通识", "KNOWLEDGE", "文科", "ROOT", ["SCHOOL", "FAMILY"], ["intelligence", "stability"], "支撑政治、历史、地理和社会理解。", []),
+  skill("KNOWLEDGE.HUMANITIES.BASIC.001", "历史脉络", "KNOWLEDGE", "文科", "BASIC", ["SCHOOL", "FAMILY"], ["intelligence"], "理解事件、人物和时代之间的因果关系。", [reqSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 1)]),
+  skill("KNOWLEDGE.HUMANITIES.BASIC.002", "政治常识", "KNOWLEDGE", "文科", "BASIC", ["SCHOOL"], ["intelligence", "charm"], "理解规则、公共议题和价值判断。", [reqSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 1)]),
+  skill("KNOWLEDGE.HUMANITIES.BASIC.003", "地理观察", "KNOWLEDGE", "文科", "BASIC", ["SCHOOL", "COMMUNITY"], ["intelligence", "creativity"], "理解空间、环境和区域变化。", [reqSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 2)]),
+
   skill("TECH.COMPUTER.ROOT.001", "电脑基础", "TECH", "科技", "ROOT", ["SCHOOL", "ONLINE"], ["intelligence"], "开启科技类行动和网络场景。", [anyOf([reqStage("teen"), reqEvent("school_pc_access_001")])]),
   skill("TECH.PROGRAMMING.BASIC.001", "编程入门", "TECH", "编程", "BASIC", ["SCHOOL", "COLLEGE", "ONLINE"], ["intelligence", "discipline"], "学会用程序拆解问题。", [reqSkill("TECH.COMPUTER.ROOT.001", 2), reqSkill("KNOWLEDGE.MATH.BASIC.002", 2)]),
   skill("TECH.PROGRAMMING.BRANCH.001", "数据结构", "TECH", "编程", "BRANCH", ["COLLEGE", "ONLINE"], ["intelligence"], "提高程序开发效率。", [reqSkill("TECH.PROGRAMMING.BASIC.001", 4)]),
@@ -256,6 +273,14 @@ const SKILLS = [
 
 const BOOSTS = [
   boost("KNOWLEDGE.MATH.ROOT.001", "ART.MUSIC.BASIC.001", [[3, 0.05], [5, 0.1], [8, 0.15], [10, 0.2]], "比例、节奏、模式识别迁移"),
+  boost("KNOWLEDGE.MATH.ROOT.001", "KNOWLEDGE.SCIENCE.ROOT.001", [[3, 0.05], [5, 0.1], [8, 0.15], [10, 0.2]], "数学建模能力迁移到理科学习"),
+  boost("KNOWLEDGE.MATH.BASIC.002", "KNOWLEDGE.SCIENCE.BASIC.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "方程和函数理解物理模型"),
+  boost("TECH.COMPUTER.ROOT.001", "KNOWLEDGE.MATH.BASIC.002", [[3, 0.05], [5, 0.1], [8, 0.15]], "工具化思维帮助代数训练"),
+  boost("KNOWLEDGE.LANGUAGE.ROOT.001", "KNOWLEDGE.ENGLISH.ROOT.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "语感和阅读策略迁移到英语"),
+  boost("KNOWLEDGE.LANGUAGE.BASIC.001", "LIFE.SOCIAL.BASIC.002", [[3, 0.05], [5, 0.1], [8, 0.15]], "阅读积累提升写作表达"),
+  boost("KNOWLEDGE.LANGUAGE.BASIC.001", "KNOWLEDGE.HUMANITIES.BASIC.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "文本阅读帮助理解历史叙事"),
+  boost("KNOWLEDGE.HUMANITIES.BASIC.001", "KNOWLEDGE.LANGUAGE.BASIC.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "历史背景反哺文学理解"),
+  boost("LIFE.SOCIAL.ROOT.001", "KNOWLEDGE.ENGLISH.ROOT.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "交流意愿和表达信心迁移到语言学习"),
   boost("KNOWLEDGE.MATH.BASIC.002", "TECH.PROGRAMMING.BASIC.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "抽象变量和逻辑表达迁移"),
   boost("KNOWLEDGE.MATH.BRANCH.001", "KNOWLEDGE.MATH.PRO.001", [[3, 0.05], [5, 0.1], [8, 0.15], [10, 0.2]], "函数、模型和变化率理解迁移"),
   boost("KNOWLEDGE.MATH.BRANCH.003", "TECH.PROGRAMMING.PRO.003", [[3, 0.05], [5, 0.1], [8, 0.15], [10, 0.2]], "向量、矩阵和模型思维迁移"),
@@ -333,6 +358,38 @@ const EVENTS = [
   event("online_forum_001", "网络社区启蒙", "你看到陌生人分享代码、画作和学习笔记。", ["weekly_check"], ["teen"], [reqSkill("TECH.COMPUTER.ROOT.001", 1)], 22, 60, false, [
     choice("潜水学习", [effSkill("TECH.PROGRAMMING.BASIC.001", 55), effResource("knowledge", 5)], "你开始照着教程敲下第一行代码。"),
     choice("参与讨论", [effSkill("LIFE.SOCIAL.ROOT.001", 45), effResource("social", 4)], "你第一次感到网络也有同伴。"),
+  ]),
+  event("school_morning_reading_001", "清晨早读", "教室里还带着一点困意，朗读声逐渐把一天推起来。", ["weekly_check"], ["teen"], [reqAttr("energy", 20)], 34, 36, false, [
+    choice("认真晨读", [effSkill("KNOWLEDGE.LANGUAGE.ROOT.001", 65), effSkill("KNOWLEDGE.ENGLISH.ROOT.001", 35), effResource("stamina", -10)], "语感和专注一起醒过来。"),
+    choice("小声背单词", [effSkill("KNOWLEDGE.ENGLISH.ROOT.001", 70), effResource("happiness", -1)], "重复有点枯燥，但有效。"),
+  ]),
+  event("school_literature_novel_001", "课外小说", "一本小说在同学之间悄悄传阅，故事比习题更有吸引力。", ["weekly_check"], ["teen"], [reqSkill("KNOWLEDGE.LANGUAGE.ROOT.001", 2)], 26, 54, false, [
+    choice("认真读完", [effSkill("KNOWLEDGE.LANGUAGE.BASIC.001", 80), effSkill("LIFE.SOCIAL.BASIC.002", 45), effResource("happiness", 3)], "人物和情节留在脑子里，写作也多了材料。"),
+    choice("只读精彩段落", [effSkill("KNOWLEDGE.LANGUAGE.ROOT.001", 45), effResource("stamina", 8)], "你保留了体力，但理解没那么完整。"),
+  ]),
+  event("school_physics_lab_001", "物理实验课", "小车、斜面和秒表摆在桌上，公式终于有了实体。", ["monthly_check"], ["teen"], [reqSkill("KNOWLEDGE.SCIENCE.ROOT.001", 1), reqSkill("KNOWLEDGE.MATH.ROOT.001", 2)], 28, 72, false, [
+    choice("自己动手测量", [effSkill("KNOWLEDGE.SCIENCE.BASIC.001", 85), effSkill("KNOWLEDGE.MATH.BASIC.002", 35), effResource("stamina", -12)], "数据和图像连成了一条线。"),
+    choice("整理实验报告", [effSkill("KNOWLEDGE.LANGUAGE.ROOT.001", 35), effSkill("KNOWLEDGE.SCIENCE.ROOT.001", 55), effAttr("discipline", 1)], "表达清楚也是理解的一部分。"),
+  ]),
+  event("school_chemistry_lab_001", "化学实验安全", "老师反复提醒试剂用量，实验台上每一步都要稳。", ["monthly_check"], ["teen"], [reqSkill("KNOWLEDGE.SCIENCE.ROOT.001", 1)], 24, 78, false, [
+    choice("严格按流程操作", [effSkill("KNOWLEDGE.SCIENCE.BASIC.002", 80), effAttr("discipline", 1), effResource("morality", 1)], "谨慎让实验结果更可靠。"),
+    choice("观察同组操作", [effSkill("KNOWLEDGE.SCIENCE.ROOT.001", 45), effSkill("LIFE.SOCIAL.BASIC.001", 30)], "你从别人的习惯里学到了一点细节。"),
+  ]),
+  event("school_history_documentary_001", "历史纪录片", "班主任临时放了一段纪录片，旧时代突然有了声音和颜色。", ["weekly_check"], ["teen"], [reqSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 1)], 25, 60, false, [
+    choice("记下时间线", [effSkill("KNOWLEDGE.HUMANITIES.BASIC.001", 80), effSkill("KNOWLEDGE.LANGUAGE.BASIC.001", 25)], "事件之间的因果关系开始清晰。"),
+    choice("讨论人物选择", [effSkill("LIFE.SOCIAL.ROOT.001", 35), effResource("morality", 1), effSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 45)], "历史变成了真实的人做出的决定。"),
+  ]),
+  event("school_geography_weather_001", "地理天气图", "地图上的风向、气压和城市名字像一张正在变化的棋盘。", ["weekly_check"], ["teen"], [reqSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 1)], 24, 60, false, [
+    choice("分析天气图", [effSkill("KNOWLEDGE.HUMANITIES.BASIC.003", 75), effSkill("KNOWLEDGE.SCIENCE.ROOT.001", 25)], "空间和自然系统在脑子里合上了。"),
+    choice("画一张示意图", [effSkill("ART.CREATIVE.BASIC.002", 35), effSkill("KNOWLEDGE.HUMANITIES.BASIC.003", 45)], "图形让复杂信息更容易记住。"),
+  ]),
+  event("school_biology_club_001", "生物社团观察", "显微镜下的叶片切片像一个陌生但有秩序的小世界。", ["monthly_check"], ["teen"], [reqSkill("KNOWLEDGE.SCIENCE.ROOT.001", 2)], 20, 90, false, [
+    choice("留下观察", [effSkill("KNOWLEDGE.SCIENCE.BASIC.003", 90), effSkill("HEALTH.BASIC.ROOT.001", 30), effResource("stamina", -8)], "身体和生命系统突然离你更近。"),
+    choice("帮忙整理器材", [effSkill("LIFE.DAILY.BASIC.002", 45), effResource("reputation", 1)], "秩序感让社团活动顺畅了不少。"),
+  ]),
+  event("school_class_debate_001", "班会辩论", "一个校园话题引发了争论，大家都想说服别人。", ["monthly_check"], ["teen"], [reqSkill("LIFE.SOCIAL.ROOT.001", 2)], 22, 84, false, [
+    choice("站起来发言", [effSkill("KNOWLEDGE.HUMANITIES.BASIC.002", 65), effSkill("LIFE.SOCIAL.ROOT.001", 55), effResource("reputation", 1)], "观点需要证据，也需要表达。"),
+    choice("认真听完双方", [effSkill("LIFE.SOCIAL.BASIC.001", 65), effSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 35), effResource("morality", 1)], "你发现理解别人比反驳更难。"),
   ]),
 
   event("college_major_choice_001", "专业选择窗口", "大学生活展开，你需要给这一阶段定一个主方向。", ["stage_enter"], ["college"], [], 100, 0, true, [
@@ -476,11 +533,21 @@ const EVENTS = [
   ]),
 ];
 
+const MAJOR_EVENTS = [
+  majorEvent("major_subject_track_001", "文理分科", "高一结束前，你需要给之后两年的学习路线定一个方向。文科更重视语文、人文通识和表达，理科更重视数学、理科基础和实验能力。", SUBJECT_TRACK_MONTH, ["teen"], [], true, [
+    choice("选择文科", [effTag("track_liberal_arts"), effSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 120), effSkill("KNOWLEDGE.LANGUAGE.ROOT.001", 80), effResource("happiness", 2)], "你选择了文科路线。之后高考会考政治、历史、地理。"),
+    choice("选择理科", [effTag("track_science"), effSkill("KNOWLEDGE.SCIENCE.ROOT.001", 120), effSkill("KNOWLEDGE.MATH.ROOT.001", 80), effResource("happiness", 2)], "你选择了理科路线。之后高考会考物理、化学、生物。"),
+  ]),
+  majorEvent("major_gaokao_001", "高考", "高三六月，三年的训练在这个夏天集中结算。系统会根据你的学科技能、状态和分科路线评估高考分数。", GAOKAO_MONTH, ["teen"], [], true, [
+    choice("参加高考", [], "高考结束，成绩已经结算。", { resolver: "gaokao" }),
+  ]),
+];
+
 const ACHIEVEMENTS = [
-  achievement("achievement_first_week", "第一周", "推进 7 天", s => s.day >= 7, [effResource("knowledge", 10)]),
+  achievement("achievement_first_week", "第七个月", "推进到高中第七个月", s => s.day >= 7, [effResource("knowledge", 10)]),
   achievement("achievement_college", "进入大学", "抵达大学期", s => s.stageId === "college" || s.stageId === "work", [effResource("knowledge", 20)]),
   achievement("achievement_work", "初入职场", "抵达职场前期", s => s.stageId === "work", [effResource("money", 200)]),
-  achievement("achievement_streak_001", "坚持学习", "连续学习 100 天", s => s.stats.studyStreak >= 100, [effSkill("LIFE.MIND.PASSIVE.002", 100)]),
+  achievement("achievement_streak_001", "坚持学习", "连续学习 100 个结算周期", s => s.stats.studyStreak >= 100, [effSkill("LIFE.MIND.PASSIVE.002", 100)]),
   achievement("achievement_first_level3", "入门成型", "任意技能达到 3 级", s => Object.values(s.skills).some(x => x.level >= 3), [effResource("knowledge", 12)]),
   achievement("achievement_first_level5", "熟练之门", "任意技能达到 5 级", s => Object.values(s.skills).some(x => x.level >= 5), [effResource("reputation", 2)]),
   achievement("achievement_math_fan", "数学爱好者", "数学技能任一达到 8 级", s => skillIdsByBranch("数学").some(id => getLevel(s, id) >= 8), [effResource("knowledge", 30)]),
@@ -531,8 +598,12 @@ function event(id, title, text, triggers, stages, conditions, weight, cooldown, 
   return { id, title, text, triggers, stages, conditions, weight, cooldown, once, choices };
 }
 
-function choice(text, effects, result) {
-  return { text, effects, result };
+function majorEvent(id, title, text, month, stages, conditions, once, choices) {
+  return { id, title, text, month, stages, conditions, once, choices, major: true };
+}
+
+function choice(text, effects, result, meta = {}) {
+  return { text, effects, result, ...meta };
 }
 
 function achievement(id, title, desc, condition, effects) {
@@ -721,7 +792,7 @@ function createNewState() {
   const next = {
     version: VERSION,
     day: 1,
-    age: 13,
+    age: START_AGE,
     stageId: "teen",
     sceneId: "SCHOOL",
     attrs: {
@@ -765,9 +836,11 @@ function createNewState() {
       completions: 0,
     },
     eventQueue: [],
+    majorEventQueue: [],
     eventHistory: [],
     eventCooldowns: {},
     completedEvents: {},
+    examResults: {},
     achievements: {},
     tags: {},
     logs: [],
@@ -794,7 +867,7 @@ function createNewState() {
   });
 
   checkUnlocks(next);
-  pushLogTo(next, "人生从少年期开始。");
+  pushLogTo(next, "人生从高一九月开始。");
   return next;
 }
 
@@ -812,6 +885,7 @@ function loadState() {
     const merged = migrateState(loaded);
     refreshStage(merged, false);
     checkUnlocks(merged);
+    queueMajorEventsForMonth(merged);
     return merged;
   } catch (error) {
     console.error(error);
@@ -866,7 +940,9 @@ function migrateState(loaded) {
     merged.training = { ...fresh.training, startedAt: Date.now() };
   }
   merged.eventQueue = Array.isArray(loaded.eventQueue) ? loaded.eventQueue : [];
+  merged.majorEventQueue = Array.isArray(loaded.majorEventQueue) ? loaded.majorEventQueue : [];
   merged.eventHistory = Array.isArray(loaded.eventHistory) ? loaded.eventHistory : [];
+  merged.examResults = { ...fresh.examResults, ...(loaded.examResults || {}) };
   merged.logs = Array.isArray(loaded.logs) ? loaded.logs : fresh.logs;
   return merged;
 }
@@ -1007,8 +1083,9 @@ function completeTrainingTick(source = "技能训练", silent = false, showGainT
     refreshStage(state, true);
     recoverDaily();
     queueEvents("resource_state", 1);
-    if (state.day % 7 === 0) queueEvents("weekly_check", 1);
-    if (state.day % 30 === 0) queueEvents("monthly_check", 1);
+    queueEvents("weekly_check", 1);
+    queueEvents("monthly_check", 1);
+    queueMajorEventsForMonth(state);
   }
 
   if (!silent) {
@@ -1425,9 +1502,9 @@ function getBoostInfo(targetId) {
 }
 
 function refreshStage(target, shouldQueue) {
-  target.age = 13 + Math.floor((target.day - 1) / 12);
+  target.age = getAgeForMonth(target.day);
   const oldStage = target.stageId;
-  const stage = STAGES.find(item => target.age >= item.minAge && target.age <= item.maxAge) || STAGES[2];
+  const stage = getStageForAge(target.age);
   target.stageId = stage.id;
   if (target.resources) target.resources.careerLevel = careerRankValue(target);
   if (oldStage !== target.stageId) {
@@ -1436,6 +1513,39 @@ function refreshStage(target, shouldQueue) {
     pushLogTo(target, `进入${stage.name}。`);
     if (shouldQueue) queueEventsFor(target, "stage_enter", 1);
   }
+}
+
+function getAgeForMonth(monthIndex) {
+  return START_AGE + Math.floor((Math.max(1, monthIndex) - 1) / 12);
+}
+
+function getStageForAge(age) {
+  return STAGES.find(item => age >= item.minAge && age <= item.maxAge) || STAGES[2];
+}
+
+function getCalendarInfo(monthIndex = state?.day || 1) {
+  const safeMonth = Math.max(1, monthIndex);
+  const calendarMonth = ACADEMIC_MONTHS[(safeMonth - 1) % ACADEMIC_MONTHS.length];
+  const age = getAgeForMonth(safeMonth);
+  const stageId = getStageForAge(age).id;
+
+  if (stageId === "teen") {
+    const year = Math.floor((safeMonth - 1) / 12) + 1;
+    const grade = ["高一", "高二", "高三"][Math.min(2, year - 1)] || `高中第 ${year} 年`;
+    return { stageId, year, month: calendarMonth, label: `${grade} · ${calendarMonth}月` };
+  }
+
+  if (stageId === "college") {
+    const year = Math.floor((safeMonth - 37) / 12) + 1;
+    return { stageId, year, month: calendarMonth, label: `大学第 ${Math.max(1, year)} 年 · ${calendarMonth}月` };
+  }
+
+  const year = Math.floor((safeMonth - 97) / 12) + 1;
+  return { stageId, year, month: calendarMonth, label: `职场第 ${Math.max(1, year)} 年 · ${calendarMonth}月` };
+}
+
+function formatGameDate(monthIndex = state?.day || 1) {
+  return getCalendarInfo(monthIndex).label;
 }
 
 function checkUnlocks(target) {
@@ -1552,6 +1662,177 @@ function queueSpecificEvent(id) {
   if (state.completedEvents[id] || state.eventQueue.includes(id)) return;
   if (state.eventQueue.length >= 3) return;
   state.eventQueue.push(id);
+}
+
+function queueMajorEventsForMonth(target, monthIndex = target.day) {
+  if (!target.majorEventQueue) target.majorEventQueue = [];
+  MAJOR_EVENTS.forEach(item => {
+    if (item.month !== monthIndex) return;
+    if (item.once && target.completedEvents[item.id]) return;
+    if (target.majorEventQueue.includes(item.id)) return;
+    if (item.stages.length && !item.stages.includes(target.stageId)) return;
+    if (!meetsAll(target, item.conditions)) return;
+    target.majorEventQueue.push(item.id);
+    pushLogTo(target, `重大事件出现：${item.title}`);
+  });
+}
+
+function resolveMajorEventChoice(eventId, choiceIndex) {
+  const item = getMajorEvent(eventId);
+  if (!item) return;
+  const picked = item.choices[choiceIndex];
+  if (!picked) return;
+
+  applyEffects(picked.effects, item.title);
+  let result = picked.result;
+  let resultBody = "";
+
+  if (picked.resolver === "gaokao") {
+    const exam = calculateGaokaoScore(state);
+    applyGaokaoOutcome(exam);
+    result = `${exam.total} 分 · ${exam.tierName}`;
+    resultBody = renderGaokaoResult(exam);
+  }
+
+  state.completedEvents[item.id] = { day: state.day, choice: picked.text, major: true, result };
+  state.majorEventQueue = (state.majorEventQueue || []).filter(id => id !== item.id);
+  state.eventHistory.unshift({ id: item.id, title: `重大事件：${item.title}`, choice: picked.text, result, day: state.day, major: true });
+  state.eventHistory = state.eventHistory.slice(0, 60);
+  pushLog(`重大事件：${item.title}：${result}`);
+  checkUnlocks(state);
+  checkAchievements();
+  saveState();
+  render();
+
+  if (resultBody) {
+    openModal(`${item.title}结果`, resultBody);
+  } else {
+    closeModal();
+  }
+}
+
+function applyGaokaoOutcome(exam) {
+  state.examResults.gaokao = exam;
+  state.tags.gaokao_done = true;
+  state.tags[`gaokao_${exam.tier}`] = true;
+  addResource("reputation", exam.reputationReward);
+  addResource("happiness", exam.happinessReward);
+}
+
+function calculateGaokaoScore(target = state) {
+  const track = getSubjectTrack(target);
+  const commonSubjects = [
+    subjectScore(target, "语文", [
+      ["KNOWLEDGE.LANGUAGE.ROOT.001", 0.35],
+      ["KNOWLEDGE.LANGUAGE.BASIC.001", 0.3],
+      ["LIFE.SOCIAL.BASIC.002", 0.2],
+      ["KNOWLEDGE.HUMANITIES.ROOT.001", 0.15],
+    ]),
+    subjectScore(target, "数学", [
+      ["KNOWLEDGE.MATH.ROOT.001", 0.3],
+      ["KNOWLEDGE.MATH.BASIC.001", 0.18],
+      ["KNOWLEDGE.MATH.BASIC.002", 0.25],
+      ["KNOWLEDGE.MATH.BASIC.003", 0.17],
+      ["TECH.COMPUTER.ROOT.001", 0.1],
+    ]),
+    subjectScore(target, "英语", [
+      ["KNOWLEDGE.ENGLISH.ROOT.001", 0.45],
+      ["KNOWLEDGE.LANGUAGE.ROOT.001", 0.2],
+      ["LIFE.SOCIAL.ROOT.001", 0.25],
+      ["LIFE.SOCIAL.BASIC.001", 0.1],
+    ]),
+  ];
+  const electiveSubjects = track.id === "science"
+    ? [
+      subjectScore(target, "物理", [
+        ["KNOWLEDGE.SCIENCE.ROOT.001", 0.3],
+        ["KNOWLEDGE.SCIENCE.BASIC.001", 0.35],
+        ["KNOWLEDGE.MATH.BASIC.002", 0.2],
+        ["KNOWLEDGE.MATH.BASIC.003", 0.15],
+      ], 0, 100),
+      subjectScore(target, "化学", [
+        ["KNOWLEDGE.SCIENCE.ROOT.001", 0.35],
+        ["KNOWLEDGE.SCIENCE.BASIC.002", 0.4],
+        ["KNOWLEDGE.MATH.ROOT.001", 0.15],
+        ["HEALTH.BASIC.ROOT.001", 0.1],
+      ], 0, 100),
+      subjectScore(target, "生物", [
+        ["KNOWLEDGE.SCIENCE.ROOT.001", 0.35],
+        ["KNOWLEDGE.SCIENCE.BASIC.003", 0.4],
+        ["HEALTH.BASIC.ROOT.001", 0.15],
+        ["KNOWLEDGE.HUMANITIES.BASIC.003", 0.1],
+      ], 0, 100),
+    ]
+    : [
+      subjectScore(target, "政治", [
+        ["KNOWLEDGE.HUMANITIES.ROOT.001", 0.35],
+        ["KNOWLEDGE.HUMANITIES.BASIC.002", 0.35],
+        ["LIFE.SOCIAL.ROOT.001", 0.15],
+        ["LIFE.SOCIAL.BASIC.001", 0.15],
+      ], clamp((target.resources.morality || 0) / 12, -6, 6), 100),
+      subjectScore(target, "历史", [
+        ["KNOWLEDGE.HUMANITIES.ROOT.001", 0.3],
+        ["KNOWLEDGE.HUMANITIES.BASIC.001", 0.4],
+        ["KNOWLEDGE.LANGUAGE.BASIC.001", 0.2],
+        ["LIFE.SOCIAL.BASIC.002", 0.1],
+      ], 0, 100),
+      subjectScore(target, "地理", [
+        ["KNOWLEDGE.HUMANITIES.ROOT.001", 0.25],
+        ["KNOWLEDGE.HUMANITIES.BASIC.003", 0.4],
+        ["KNOWLEDGE.SCIENCE.ROOT.001", 0.2],
+        ["KNOWLEDGE.MATH.BASIC.003", 0.15],
+      ], 0, 100),
+    ];
+  const subjects = [...commonSubjects, ...electiveSubjects];
+  const total = subjects.reduce((sum, item) => sum + item.score, 0);
+  const tier = getGaokaoTier(total);
+  return {
+    track: track.id,
+    trackName: track.name,
+    total,
+    subjects,
+    tier: tier.id,
+    tierName: tier.name,
+    reputationReward: tier.reputation,
+    happinessReward: tier.happiness,
+    comment: tier.comment,
+    month: target.day,
+  };
+}
+
+function getSubjectTrack(target = state) {
+  if (target.tags.track_liberal_arts) return { id: "arts", name: "文科" };
+  if (target.tags.track_science) return { id: "science", name: "理科" };
+  const scienceScore = getLevel(target, "KNOWLEDGE.SCIENCE.ROOT.001") + getLevel(target, "KNOWLEDGE.MATH.ROOT.001");
+  const artsScore = getLevel(target, "KNOWLEDGE.HUMANITIES.ROOT.001") + getLevel(target, "KNOWLEDGE.LANGUAGE.ROOT.001");
+  return scienceScore >= artsScore ? { id: "science", name: "理科" } : { id: "arts", name: "文科" };
+}
+
+function subjectScore(target, name, skillWeights, extra = 0, maxScore = 150) {
+  const weightedLevel = weightedSkillLevel(target, skillWeights);
+  const staminaRatio = clamp((target.resources.stamina || 0) / Math.max(1, getMaxStamina(target)), 0, 1);
+  const statusBonus =
+    ((target.attrs.intelligence || 45) - 45) * 0.24
+    + ((target.attrs.discipline || 40) - 40) * 0.22
+    + ((target.resources.happiness || 50) - 50) * 0.08
+    + (staminaRatio - 0.5) * 8
+    + extra;
+  const scale = maxScore / 150;
+  const score = Math.round(clamp((52 + weightedLevel * 8.6 + statusBonus) * scale, maxScore * 0.2, maxScore));
+  return { name, score, maxScore, level: Number(weightedLevel.toFixed(1)) };
+}
+
+function weightedSkillLevel(target, skillWeights) {
+  const totalWeight = skillWeights.reduce((sum, [, weight]) => sum + weight, 0) || 1;
+  return skillWeights.reduce((sum, [id, weight]) => sum + getLevel(target, id) * weight, 0) / totalWeight;
+}
+
+function getGaokaoTier(total) {
+  if (total >= 680) return { id: "top", name: "顶尖院校线", reputation: 8, happiness: 10, comment: "你几乎把高中阶段的核心能力打穿了，后续大学路线会有很高起点。" };
+  if (total >= 600) return { id: "key", name: "重点本科线", reputation: 6, happiness: 8, comment: "成绩非常扎实，足以支撑你进入更好的大学环境。" };
+  if (total >= 500) return { id: "undergraduate", name: "本科线", reputation: 4, happiness: 5, comment: "你拿到了稳定的大学入场券，未来还有很多路线可以补强。" };
+  if (total >= 380) return { id: "college", name: "专科/保底线", reputation: 1, happiness: 1, comment: "结果不算理想，但仍然保留了继续成长和换路线的空间。" };
+  return { id: "retry", name: "需要调整", reputation: 0, happiness: -6, comment: "这次结算暴露了明显短板，之后需要靠事件或后续阶段重新找回节奏。" };
 }
 
 function weightedPick(items, target = state) {
@@ -1807,6 +2088,7 @@ function render() {
   renderCareers();
   renderAchievements();
   document.querySelectorAll(".view").forEach(view => view.classList.toggle("active", view.id === `view-${activeView}`));
+  promptMajorEventIfNeeded();
 }
 
 function renderNav() {
@@ -1817,8 +2099,9 @@ function renderNav() {
 
 function renderShell() {
   const stage = getStage(state.stageId);
+  const calendar = formatGameDate(state.day);
   DOM.stageLabel.textContent = stage.name;
-  DOM.metaLine.textContent = `${state.age} 岁 · 第 ${state.day} 月 · ${SCENES[state.sceneId]?.name || "未知场景"} · ${getCareer(state.careerId).name} · 职级 ${getCareerLevelLabel(state)}`;
+  DOM.metaLine.textContent = `${state.age} 岁 · ${calendar} · ${SCENES[state.sceneId]?.name || "未知场景"} · ${getCareer(state.careerId).name} · 职级 ${getCareerLevelLabel(state)}`;
 }
 
 function renderTopResourceBar() {
@@ -1838,6 +2121,10 @@ function renderTopResourceBar() {
 function renderSidebarSkills() {
   const preferred = [
     "KNOWLEDGE.MATH.ROOT.001",
+    "KNOWLEDGE.LANGUAGE.ROOT.001",
+    "KNOWLEDGE.ENGLISH.ROOT.001",
+    "KNOWLEDGE.SCIENCE.ROOT.001",
+    "KNOWLEDGE.HUMANITIES.ROOT.001",
     "TECH.COMPUTER.ROOT.001",
     "TECH.PROGRAMMING.BASIC.001",
     "ART.CREATIVE.ROOT.001",
@@ -1879,6 +2166,7 @@ function renderSidebarSkills() {
 function renderNotices() {
   const notices = [];
   if (state.lastSettlement?.skillText) notices.push(state.lastSettlement.skillText);
+  if (state.majorEventQueue?.length) notices.push(`有 ${state.majorEventQueue.length} 个重大事件等待选择。`);
   if (state.eventQueue.length) notices.push(`有 ${state.eventQueue.length} 个事件等待选择。`);
   if (state.resources.happiness < 30) notices.push("幸福感偏低，收益和事件倾向会变差。");
   if (state.resources.stamina < 100) notices.push("体力偏低，挂机效率会明显下降。");
@@ -1898,7 +2186,7 @@ function renderHome() {
 
   DOM.trainingPanel.innerHTML = renderTrainingPanel();
 
-  DOM.eventCountBadge.textContent = `${state.eventQueue.length} 个`;
+  DOM.eventCountBadge.textContent = `${state.eventQueue.length + (state.majorEventQueue?.length || 0)} 个`;
   DOM.homeEventBox.innerHTML = renderEventFocus(true);
   DOM.logList.innerHTML = state.logs.slice(0, 14).map(item => `<div class="log-entry">${item}</div>`).join("") || `<div class="empty-state">暂无记录。</div>`;
 }
@@ -2028,7 +2316,7 @@ function renderEvents() {
   DOM.eventPanel.innerHTML = renderEventFocus(false);
   DOM.eventHistory.innerHTML = state.eventHistory.map(item => `
     <div class="list-item">
-      <div class="item-meta">第 ${item.day} 天 · ${item.choice}</div>
+      <div class="item-meta">${formatGameDate(item.day)} · ${item.choice}</div>
       <h3>${item.title}</h3>
       <p class="skill-desc">${item.result}</p>
     </div>
@@ -2038,6 +2326,10 @@ function renderEvents() {
 function renderEventFocus(compact) {
   const id = state.eventQueue[0];
   const item = EVENTS.find(eventItem => eventItem.id === id);
+  if (!item && state.majorEventQueue?.length) {
+    const major = getMajorEvent(state.majorEventQueue[0]);
+    return `<div class="empty-state">重大事件「${major?.title || "未知事件"}」等待处理，弹窗关闭后会在下次刷新时再次提醒。</div>`;
+  }
   if (!item) return `<div class="empty-state">当前没有待处理事件。</div>`;
   return `
     <article class="event-card">
@@ -2045,6 +2337,65 @@ function renderEventFocus(compact) {
       <p class="event-text">${item.text}</p>
       <div class="choice-list">
         ${item.choices.map((choiceItem, index) => `<button type="button" data-event="${item.id}" data-choice="${index}">${choiceItem.text}</button>`).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function promptMajorEventIfNeeded() {
+  if (!state?.majorEventQueue?.length || !DOM.modalBackdrop) return;
+  if (!DOM.modalBackdrop.hidden && !DOM.modalBackdrop.classList.contains("is-hidden")) return;
+  const item = getMajorEvent(state.majorEventQueue[0]);
+  if (!item) return;
+  openModal(`重大事件：${item.title}`, renderMajorEventModal(item));
+}
+
+function renderMajorEventModal(item) {
+  const preview = item.id === "major_gaokao_001" ? renderGaokaoPreview() : "";
+  return `
+    <article class="event-card major-event-card">
+      <div class="major-event-kicker">重大事件 · ${formatGameDate(item.month)}</div>
+      <div class="event-title">${item.title}</div>
+      <p class="event-text">${item.text}</p>
+      ${preview}
+      <div class="choice-list">
+        ${item.choices.map((choiceItem, index) => `<button type="button" data-major-event="${item.id}" data-major-choice="${index}">${choiceItem.text}</button>`).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderGaokaoPreview() {
+  const exam = calculateGaokaoScore(state);
+  return `
+    <div class="notice">
+      当前预估：${exam.trackName} · ${exam.total} 分 · ${exam.tierName}
+    </div>
+  `;
+}
+
+function renderGaokaoResult(exam) {
+  return `
+    <article class="event-card major-event-card">
+      <div class="major-event-kicker">${exam.trackName} · ${formatGameDate(exam.month)}</div>
+      <div class="gaokao-total">
+        <span>高考总分</span>
+        <strong>${exam.total}</strong>
+        <em>${exam.tierName}</em>
+      </div>
+      <p class="event-text">${exam.comment}</p>
+      <div class="gaokao-score-grid">
+        ${exam.subjects.map(subject => `
+          <div class="subject-score">
+            <span>${subject.name}</span>
+            <strong>${subject.score}</strong>
+            <small>能力均值 Lv.${subject.level} / ${subject.maxScore}分</small>
+          </div>
+        `).join("")}
+      </div>
+      <div class="resource-grid gaokao-reward-grid">
+        <div class="resource-chip"><span>声望</span><strong>${formatSigned(exam.reputationReward)}</strong></div>
+        <div class="resource-chip"><span>幸福感</span><strong>${formatSigned(exam.happinessReward)}</strong></div>
       </div>
     </article>
   `;
@@ -2229,7 +2580,7 @@ function renderAchievements() {
         <div class="skill-head">
           <div>
             <div class="skill-name">${item.title}</div>
-            <div class="item-meta">${achieved ? `第 ${state.achievements[item.id].day} 天达成` : "未达成"}</div>
+            <div class="item-meta">${achieved ? `${formatGameDate(state.achievements[item.id].day)}达成` : "未达成"}</div>
           </div>
           <span class="badge ${achieved ? "" : "soft"}">${achieved ? "完成" : "进行中"}</span>
         </div>
@@ -2258,6 +2609,11 @@ document.addEventListener("click", event => {
   const socialAction = event.target.closest("[data-social-action]");
   if (socialAction) {
     startSocialAction(socialAction.dataset.socialTarget, socialAction.dataset.socialAction);
+    return;
+  }
+  const majorChoiceButton = event.target.closest("[data-major-event][data-major-choice]");
+  if (majorChoiceButton) {
+    resolveMajorEventChoice(majorChoiceButton.dataset.majorEvent, Number(majorChoiceButton.dataset.majorChoice));
     return;
   }
   const choiceButton = event.target.closest("[data-event][data-choice]");
@@ -2362,6 +2718,10 @@ function getSocialAction(id) {
   return SOCIAL_ACTIONS.find(item => item.id === id) || SOCIAL_ACTIONS[0];
 }
 
+function getMajorEvent(id) {
+  return MAJOR_EVENTS.find(item => item.id === id);
+}
+
 function getSocialActionProfile(npcItem, actionItem = getSocialAction("talk")) {
   const rawEnergyCost = Math.max(0, (npcItem.energyCost || 0) + (actionItem.energyCost || 0));
   return {
@@ -2447,7 +2807,7 @@ function getDisplayResourceValue(key, target = state) {
 }
 
 function eventName(id) {
-  return EVENTS.find(item => item.id === id)?.title || id;
+  return EVENTS.find(item => item.id === id)?.title || getMajorEvent(id)?.title || id;
 }
 
 function achievementName(id) {
@@ -2538,7 +2898,7 @@ function pushLog(text) {
 }
 
 function pushLogTo(target, text) {
-  target.logs.unshift(`第 ${target.day} 天：${text}`);
+  target.logs.unshift(`${formatGameDate(target.day)}：${text}`);
   target.logs = target.logs.slice(0, 80);
 }
 
@@ -2553,6 +2913,7 @@ function snapshotState() {
     resources: state.resources,
     skills: state.skills,
     eventQueue: state.eventQueue,
+    majorEventQueue: state.majorEventQueue || [],
   }));
 }
 
@@ -2586,7 +2947,9 @@ function diffSnapshot(before, after, days, hours) {
       });
     }
   });
-  return { days, hours, resources, attrs, skillChanges, events: after.eventQueue.length - before.eventQueue.length };
+  const beforeEventCount = (before.eventQueue?.length || 0) + (before.majorEventQueue?.length || 0);
+  const afterEventCount = (after.eventQueue?.length || 0) + (after.majorEventQueue?.length || 0);
+  return { days, hours, resources, attrs, skillChanges, events: afterEventCount - beforeEventCount };
 }
 
 function renderOfflineSummary(summary) {
@@ -2671,13 +3034,16 @@ function formatSkillChange(item) {
 }
 
 function openModal(title, body) {
-  document.getElementById("modalTitle").textContent = title;
+  const titleNode = document.getElementById("modalTitle");
+  if (!titleNode || !DOM.modalBody || !DOM.modalBackdrop) return;
+  titleNode.textContent = title;
   DOM.modalBody.innerHTML = body;
   DOM.modalBackdrop.hidden = false;
   DOM.modalBackdrop.classList.remove("is-hidden");
 }
 
 function closeModal() {
+  if (!DOM.modalBackdrop || !DOM.modalBody) return;
   DOM.modalBackdrop.hidden = true;
   DOM.modalBackdrop.classList.add("is-hidden");
   DOM.modalBody.innerHTML = "";

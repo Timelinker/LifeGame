@@ -17,6 +17,12 @@ if (coreResourceKeys !== "money,reputation,careerLevel,stamina,happiness,moralit
 if (state.resources.stamina !== 1000 || state.resources.morality !== 0) {
   throw new Error("new game did not start with expected stamina or morality");
 }
+if (state.age !== 15 || state.stageId !== "teen") {
+  throw new Error("new game did not start as a 15-year-old high school student");
+}
+if (formatGameDate(state.day) !== "高一 · 9月") {
+  throw new Error("new game did not start at high school September: " + formatGameDate(state.day));
+}
 DOM.topResourceBar = { innerHTML: "" };
 renderTopResourceBar();
 ["金钱", "声望", "职级", "体力", "幸福感", "道德"].forEach(label => {
@@ -39,6 +45,36 @@ if (mathAfterTraining <= mathAfterTick) {
 }
 if (state.day <= 1 || state.stats.studyStreak < 2) {
   throw new Error("training loop did not advance day or study streak");
+}
+
+state.majorEventQueue = [];
+state.completedEvents = {};
+state.day = SUBJECT_TRACK_MONTH;
+refreshStage(state, false);
+queueMajorEventsForMonth(state);
+if (!state.majorEventQueue.includes("major_subject_track_001")) {
+  throw new Error("subject track major event did not queue at high school year 1 June");
+}
+if (formatGameDate(SUBJECT_TRACK_MONTH) !== "高一 · 6月") {
+  throw new Error("subject track month label was wrong: " + formatGameDate(SUBJECT_TRACK_MONTH));
+}
+state.majorEventQueue = [];
+state.tags.track_science = true;
+state.day = GAOKAO_MONTH;
+refreshStage(state, false);
+queueMajorEventsForMonth(state);
+if (!state.majorEventQueue.includes("major_gaokao_001")) {
+  throw new Error("gaokao major event did not queue at high school year 3 June");
+}
+if (formatGameDate(GAOKAO_MONTH) !== "高三 · 6月") {
+  throw new Error("gaokao month label was wrong: " + formatGameDate(GAOKAO_MONTH));
+}
+const gaokao = calculateGaokaoScore(state);
+if (gaokao.track !== "science" || gaokao.subjects.length !== 6 || !gaokao.subjects.some(item => item.name === "物理")) {
+  throw new Error("gaokao science scoring did not include expected subjects");
+}
+if (gaokao.total <= 0 || gaokao.total > 750) {
+  throw new Error("gaokao total score was out of range: " + gaokao.total);
 }
 
 const staminaBeforeSocial = state.resources.stamina;
@@ -120,8 +156,11 @@ console.log(JSON.stringify({
   day: state.day,
   age: state.age,
   stage: state.stageId,
+  date: formatGameDate(state.day),
   queue: state.eventQueue.length,
+  majorQueue: state.majorEventQueue.length,
   unlocked: Object.values(state.skills).filter(item => item.unlocked).length,
+  gaokao,
   mathXpGainedByTrainingTick: mathAfterTick - mathBefore,
   mathXpGainedByTrainingLoop: mathAfterTraining - mathAfterTick,
   studyStreak: state.stats.studyStreak,

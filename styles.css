@@ -779,6 +779,72 @@ h3 {
   border-color: var(--teal);
 }
 
+.major-event-card {
+  display: grid;
+  gap: 12px;
+}
+
+.major-event-kicker {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.gaokao-total {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid rgba(50, 182, 166, 0.34);
+  border-radius: 8px;
+  background: rgba(50, 182, 166, 0.09);
+}
+
+.gaokao-total span,
+.gaokao-total em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.gaokao-total strong {
+  grid-row: span 2;
+  color: var(--teal);
+  font-size: 40px;
+  line-height: 1;
+}
+
+.gaokao-score-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.subject-score {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.subject-score span,
+.subject-score small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.subject-score strong {
+  color: var(--ink);
+  font-size: 22px;
+}
+
+.gaokao-reward-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .social-layout {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 360px;
@@ -1168,6 +1234,7 @@ h3 {
   .home-grid,
   .social-layout,
   .skill-grid,
+  .gaokao-score-grid,
   .career-grid,
   .achievement-grid,
   .two-column {
