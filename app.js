@@ -117,6 +117,24 @@ const ACTIONS = {
     attrs: { creativity: 0.12, charm: 0.1 },
     domains: ["KNOWLEDGE", "TECH", "ART", "LIFE", "HEALTH", "CAREER"],
   },
+  play: {
+    name: "玩耍",
+    scene: "COMMUNITY",
+    xp: 17,
+    cost: { stamina: -8 },
+    reward: { happiness: 5 },
+    attrs: { fitness: 0.18, creativity: 0.12, stability: 0.12 },
+    domains: ["LIFE", "HEALTH", "ART"],
+  },
+  gaming: {
+    name: "电玩",
+    scene: "ONLINE",
+    xp: 18,
+    cost: { stamina: -7, money: -8 },
+    reward: { happiness: 7 },
+    attrs: { intelligence: 0.14, creativity: 0.18, stability: 0.08 },
+    domains: ["LIFE", "TECH", "ART"],
+  },
   exercise: {
     name: "锻炼",
     scene: "COMMUNITY",
@@ -134,6 +152,11 @@ const INVENTORY_ITEMS = [
   item("item.teacher.note", "课堂笔记", "学习", "老师补充的知识点，后续可作为学习事件材料。"),
   item("item.classmate.gossip", "同学情报", "关系", "校园里流动的小道消息，可能引出新的事件。"),
   item("item.park.leaf", "公园叶片", "收藏", "散步时收到的小礼物，带着轻松的记忆。"),
+  item("item.play.fish", "河边小鱼", "玩耍", "少年期在河边抓到的小鱼，更多是一段鲜活记忆。"),
+  item("item.play.river_stone", "漂亮石头", "玩耍", "河岸边捡到的石头，颜色和纹理都很特别。"),
+  item("item.play.arcade_ticket", "网吧点卡", "玩耍", "一张快用完的点卡，记录着几次放学后的开黑。"),
+  item("item.play.basketball_mark", "磨旧篮球贴纸", "玩耍", "球场边随手贴在本子上的贴纸，带着汗水和夕阳。"),
+  item("item.play.football_mark", "球场队标", "玩耍", "一次临时组队后留下的小纪念。"),
   item("item.club.flyer", "社团传单", "关系", "大学社团活动的入口线索。"),
   item("item.office.memo", "办公室备忘", "职业", "职场关系里的细碎信息。"),
   item("item.client.card", "客户名片", "职业", "需要花钱维护的弱关系，也可能带来机会。"),
@@ -250,6 +273,13 @@ const SKILLS = [
   skill("LIFE.MIND.PASSIVE.001", "时间管理", "LIFE", "心智", "PASSIVE", ["SCHOOL", "COLLEGE", "WORKING"], ["discipline"], "提高挂机训练效率，降低拖延。", [anyOf([reqEvent("school_pressure_001"), reqAttr("discipline", 45)])]),
   skill("LIFE.MIND.PASSIVE.002", "毅力", "LIFE", "心智", "PASSIVE", ["SCHOOL", "COLLEGE", "WORKING"], ["discipline", "stability"], "提高长期挂机收益稳定性。", [reqAchievement("achievement_streak_001")]),
   skill("LIFE.MIND.BASIC.001", "情绪管理", "LIFE", "心智", "BASIC", ["SCHOOL", "COLLEGE", "WORKING"], ["stability"], "降低压力收益惩罚。", [reqEvent("state_high_stress_001")]),
+  skill("LIFE.PLAY.ROOT.001", "户外玩耍", "LIFE", "玩耍", "ROOT", ["FAMILY", "SCHOOL", "COMMUNITY"], ["fitness", "creativity", "stability"], "在街巷、操场和河边消磨时间，恢复幸福感，也留下少年期记忆。", []),
+  skill("LIFE.PLAY.BASIC.001", "河边抓鱼", "LIFE", "玩耍", "BASIC", ["COMMUNITY"], ["fitness", "stability"], "在河岸边观察水流、耐心等待，偶尔带回一点小收获。", [reqSkill("LIFE.PLAY.ROOT.001", 2)]),
+  skill("LIFE.PLAY.BASIC.002", "篮球", "LIFE", "玩耍", "BASIC", ["SCHOOL", "COMMUNITY"], ["fitness", "charm"], "放学后的球场运动，提升体能，也让同伴关系更自然。", [reqSkill("LIFE.PLAY.ROOT.001", 1)]),
+  skill("LIFE.PLAY.BASIC.003", "足球", "LIFE", "玩耍", "BASIC", ["SCHOOL", "COMMUNITY"], ["fitness", "charm"], "临时组队、奔跑和配合，带来体能与团队感。", [reqSkill("LIFE.PLAY.ROOT.001", 1)]),
+  skill("LIFE.PLAY.BASIC.004", "网吧打游戏", "LIFE", "电玩", "BASIC", ["ONLINE"], ["intelligence", "creativity", "stability"], "花一点零花钱换来放松、键鼠熟悉和游戏体验。", [reqSkill("TECH.COMPUTER.ROOT.001", 1), reqResource("money", 20)]),
+  skill("LIFE.PLAY.BRANCH.001", "街机手感", "LIFE", "电玩", "BRANCH", ["ONLINE", "COMMUNITY"], ["intelligence", "creativity"], "从重复挑战和即时反馈里练出操作手感。", [reqSkill("LIFE.PLAY.BASIC.004", 2)]),
+  skill("LIFE.PLAY.APPLICATION.001", "游戏理解", "LIFE", "电玩", "APPLICATION", ["ONLINE", "STUDIO"], ["intelligence", "creativity"], "理解关卡、节奏、反馈和玩家动机，为未来游戏路线埋下种子。", [reqSkill("LIFE.PLAY.BASIC.004", 3), reqSkill("TECH.COMPUTER.ROOT.001", 2)]),
   skill("LIFE.DAILY.BASIC.001", "烹饪", "LIFE", "生活", "BASIC", ["FAMILY", "COMMUNITY"], ["discipline", "creativity"], "降低生活成本，提高健康恢复。", [reqEvent("family_cooking_001")]),
   skill("LIFE.DAILY.BASIC.002", "收纳整理", "LIFE", "生活", "BASIC", ["FAMILY", "COMMUNITY"], ["discipline"], "提高长期训练稳定性。", []),
   skill("LIFE.EMERGENCY.HIDDEN.001", "急救", "LIFE", "生活", "HIDDEN", ["COMMUNITY", "WORKING"], ["stability"], "降低事故损失，开启公益事件。", [reqEvent("state_accident_001")]),
@@ -293,6 +323,12 @@ const BOOSTS = [
   boost("LIFE.SOCIAL.BASIC.002", "ART.CREATIVE.PRO.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "叙事、规则说明和表达结构迁移"),
   boost("LIFE.SOCIAL.ROOT.001", "LIFE.SOCIAL.APPLICATION.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "说服、倾听和反馈能力迁移"),
   boost("LIFE.SOCIAL.BASIC.001", "CAREER.MANAGEMENT.PRO.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "理解他人需求有助于管理"),
+  boost("LIFE.PLAY.BASIC.001", "HEALTH.BASIC.ROOT.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "在自然里玩耍让身体常识更具体"),
+  boost("LIFE.PLAY.BASIC.002", "HEALTH.SPORT.BASIC.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "篮球训练带来运动习惯迁移"),
+  boost("LIFE.PLAY.BASIC.003", "LIFE.SOCIAL.ROOT.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "足球配合让沟通更自然"),
+  boost("LIFE.PLAY.BASIC.004", "TECH.COMPUTER.ROOT.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "键鼠熟悉度迁移到电脑基础"),
+  boost("LIFE.PLAY.APPLICATION.001", "TECH.PROGRAMMING.BRANCH.003", [[3, 0.05], [5, 0.1], [8, 0.15], [10, 0.2]], "玩过的关卡和反馈迁移到游戏开发"),
+  boost("LIFE.PLAY.APPLICATION.001", "ART.CREATIVE.PRO.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "游戏体验沉淀为关卡设计直觉"),
   boost("LIFE.MIND.PASSIVE.001", "LIFE.MIND.PASSIVE.002", [[3, 0.05], [5, 0.1], [8, 0.15]], "计划能力迁移为长期坚持"),
   boost("HEALTH.SPORT.BASIC.001", "HEALTH.MIND.APPLICATION.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "身体状态改善睡眠习惯建立"),
   boost("LIFE.DAILY.BASIC.001", "HEALTH.LIFE.APPLICATION.001", [[3, 0.05], [5, 0.1], [8, 0.15]], "食材和饮食经验迁移"),
@@ -354,6 +390,18 @@ const EVENTS = [
   event("sport_invite_001", "操场上的邀请", "同学喊你一起去跑几圈。", ["weekly_check"], ["teen"], [reqAttr("health", 40)], 24, 45, false, [
     choice("一起运动", [effSkill("HEALTH.SPORT.BASIC.001", 70), effAttr("fitness", 2), effResource("stress", -4)], "汗水把压力带走了一些。"),
     choice("回教室学习", [effResource("knowledge", 8), effSkill("KNOWLEDGE.MATH.ROOT.001", 25)], "你把注意力留给了习题。"),
+  ]),
+  event("school_court_after_class_001", "放学后的球场", "夕阳落在篮板和球门上，几个人随口一喊，就凑成了一场。", ["weekly_check"], ["teen"], [reqSkill("LIFE.PLAY.ROOT.001", 1), reqAttr("energy", 20)], 34, 45, false, [
+    choice("打篮球", [effSkill("LIFE.PLAY.BASIC.002", 75), effSkill("HEALTH.SPORT.BASIC.001", 35), effAttr("fitness", 2), effResource("happiness", 4), effResource("stamina", -18), effItem("item.play.basketball_mark", 1)], "投进一个球的声音比晚自习铃声更清脆。"),
+    choice("踢足球", [effSkill("LIFE.PLAY.BASIC.003", 75), effSkill("LIFE.SOCIAL.ROOT.001", 35), effAttr("fitness", 2), effResource("happiness", 4), effResource("stamina", -18), effItem("item.play.football_mark", 1)], "临时队友之间的配合让人开心。"),
+  ]),
+  event("school_riverside_fishing_001", "河边抓鱼", "放学路上有人提议绕去河边，水草下面偶尔闪过银色的小影子。", ["weekly_check"], ["teen"], [reqSkill("LIFE.PLAY.ROOT.001", 2), reqAttr("energy", 18)], 24, 75, false, [
+    choice("蹲下抓鱼", [effSkill("LIFE.PLAY.BASIC.001", 85), effSkill("HEALTH.BASIC.ROOT.001", 25), effResource("happiness", 5), effResource("stamina", -12), effItem("item.play.fish", 1)], "你没抓到多少，但笑了很久。"),
+    choice("捡漂亮石头", [effSkill("LIFE.PLAY.ROOT.001", 55), effSkill("ART.CREATIVE.BASIC.003", 25), effResource("happiness", 3), effItem("item.play.river_stone", 1)], "口袋里多了一块很适合把玩的石头。"),
+  ]),
+  event("school_net_cafe_001", "网吧开黑", "有人说新游戏更新了，几个人把零花钱凑一凑，放学后去打一小时。", ["weekly_check"], ["teen"], [reqSkill("LIFE.PLAY.BASIC.004", 1), reqResource("money", 12)], 22, 90, false, [
+    choice("组队开黑", [effSkill("LIFE.PLAY.BASIC.004", 80), effSkill("LIFE.SOCIAL.ROOT.001", 30), effResource("money", -12), effResource("stamina", -10), effResource("happiness", 7), effItem("item.play.arcade_ticket", 1)], "配合、吵闹和胜负欲搅在一起，像一段偷偷亮着的青春。"),
+    choice("研究打法", [effSkill("LIFE.PLAY.APPLICATION.001", 55), effSkill("TECH.COMPUTER.ROOT.001", 25), effResource("money", -8), effResource("happiness", 4)], "你开始注意到关卡节奏、反馈和数值手感。"),
   ]),
   event("online_forum_001", "网络社区启蒙", "你看到陌生人分享代码、画作和学习笔记。", ["weekly_check"], ["teen"], [reqSkill("TECH.COMPUTER.ROOT.001", 1)], 22, 60, false, [
     choice("潜水学习", [effSkill("TECH.PROGRAMMING.BASIC.001", 55), effResource("knowledge", 5)], "你开始照着教程敲下第一行代码。"),
@@ -712,6 +760,10 @@ function effTag(id) {
 
 function effProject(amount) {
   return { type: "project", amount };
+}
+
+function effItem(id, count = 1) {
+  return { type: "item", id, count };
 }
 
 function cacheDom() {
@@ -1139,6 +1191,8 @@ function getTrainingActionForSkill(item) {
   if (item.domain === "ART") return "practice";
   if (item.domain === "LIFE") {
     if (item.branch === "社交") return "social";
+    if (item.branch === "玩耍") return "play";
+    if (item.branch === "电玩") return "gaming";
     if (item.branch === "生活") return "practice";
     return "study";
   }
@@ -1889,6 +1943,9 @@ function applyEffects(effects = [], source = "") {
       case "project":
         state.projectProgress = clamp(state.projectProgress + effect.amount, 0, 100);
         break;
+      case "item":
+        addInventoryItem(effect.id, effect.count || 1);
+        break;
       default:
         break;
     }
@@ -2131,6 +2188,9 @@ function renderSidebarSkills() {
     "ART.CREATIVE.BRANCH.002",
     "ART.MUSIC.BASIC.001",
     "LIFE.SOCIAL.ROOT.001",
+    "LIFE.PLAY.ROOT.001",
+    "LIFE.PLAY.BASIC.002",
+    "LIFE.PLAY.BASIC.004",
     "LIFE.MIND.PASSIVE.001",
     "HEALTH.BASIC.ROOT.001",
     "HEALTH.SPORT.BASIC.001",

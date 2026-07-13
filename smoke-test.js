@@ -47,6 +47,30 @@ if (state.day <= 1 || state.stats.studyStreak < 2) {
   throw new Error("training loop did not advance day or study streak");
 }
 
+const outdoorPlay = getSkill("LIFE.PLAY.ROOT.001");
+if (!outdoorPlay || !isUnlocked(state, outdoorPlay.id)) {
+  throw new Error("outdoor play skill was not available in teen life skills");
+}
+const playXpBefore = totalSkillXp(state.skills[outdoorPlay.id]);
+const happinessBeforePlay = state.resources.happiness;
+state.training = {
+  skillId: outdoorPlay.id,
+  startedAt: Date.now(),
+  duration: getTrainingDuration(outdoorPlay.id),
+  completions: 0,
+};
+const playTickXp = completeTrainingTick("play-smoke", true);
+if (playTickXp <= 0 || totalSkillXp(state.skills[outdoorPlay.id]) <= playXpBefore) {
+  throw new Error("play training did not add XP");
+}
+if (state.resources.happiness < happinessBeforePlay) {
+  throw new Error("play training reduced happiness unexpectedly");
+}
+applyEffects([effItem("item.play.fish", 1)], "play-smoke");
+if ((state.inventory["item.play.fish"] || 0) !== 1) {
+  throw new Error("play event item did not enter inventory");
+}
+
 state.majorEventQueue = [];
 state.completedEvents = {};
 state.day = SUBJECT_TRACK_MONTH;
@@ -161,6 +185,8 @@ console.log(JSON.stringify({
   majorQueue: state.majorEventQueue.length,
   unlocked: Object.values(state.skills).filter(item => item.unlocked).length,
   gaokao,
+  playTickXp,
+  playInventoryFish: state.inventory["item.play.fish"],
   mathXpGainedByTrainingTick: mathAfterTick - mathBefore,
   mathXpGainedByTrainingLoop: mathAfterTraining - mathAfterTick,
   studyStreak: state.stats.studyStreak,
