@@ -1,7 +1,7 @@
 "use strict";
 
 const STORAGE_KEY = "life-idle-web-save-v1";
-const VERSION = "0.2.0-dev";
+const VERSION = "0.3.0-dev";
 
 const NAV_ITEMS = [
   { id: "home", label: "首页", icon: "i-home" },
@@ -23,6 +23,30 @@ const START_AGE = 15;
 const ACADEMIC_MONTHS = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8];
 const SUBJECT_TRACK_MONTH = 10;
 const GAOKAO_MONTH = 34;
+
+const STARTER_SKILL_IDS = new Set([
+  "KNOWLEDGE.MATH.ROOT.001",
+  "KNOWLEDGE.LANGUAGE.ROOT.001",
+  "KNOWLEDGE.ENGLISH.ROOT.001",
+  "KNOWLEDGE.SCIENCE.ROOT.001",
+  "KNOWLEDGE.SCIENCE.BASIC.001",
+  "KNOWLEDGE.SCIENCE.BASIC.002",
+  "KNOWLEDGE.HUMANITIES.ROOT.001",
+  "LIFE.PLAY.ROOT.001",
+]);
+
+const SKILL_TRAINING_RULES = {
+  "LIFE.SOCIAL.ROOT.001": { trainableStages: ["work"], growthHint: "高中和大学阶段主要通过与人交谈提升，进入职场后开放主动训练。" },
+  "LIFE.SOCIAL.BASIC.001": { trainableStages: ["work"], growthHint: "主要通过与父母、老师和同学交谈提升。" },
+  "HEALTH.BASIC.ROOT.001": { trainableStages: ["college", "work"], growthHint: "高中阶段主要通过家庭、老师和生活事件提升。" },
+};
+
+const SKILL_DISCOVERY_THRESHOLDS = {
+  "LIFE.SOCIAL.ROOT.001": 60,
+  "LIFE.SOCIAL.BASIC.001": 45,
+  "HEALTH.BASIC.ROOT.001": 50,
+  "TECH.COMPUTER.ROOT.001": 60,
+};
 
 const SCENES = {
   FAMILY: { name: "家庭", modifiers: { LIFE: 1.1, HEALTH: 1.1 } },
@@ -172,10 +196,17 @@ const SOCIAL_SCENES = [
 
 const SOCIAL_ACTIONS = [
   socialAction("talk", "交谈", "基础社交行为，稳定提升友好度，并锻炼沟通表达。", 3200, 0, 0, 0, [
-    { id: "LIFE.SOCIAL.ROOT.001", amount: 10 },
-    { id: "LIFE.SOCIAL.BASIC.001", amount: 6, unlockedOnly: true },
+    { id: "LIFE.SOCIAL.ROOT.001", amount: 8, exposure: true, threshold: 60 },
+    { id: "LIFE.SOCIAL.BASIC.001", amount: 5, exposure: true, threshold: 45 },
   ]),
 ];
+
+const SOCIAL_NPC_SKILL_EXPOSURE = {
+  father: [{ id: "HEALTH.BASIC.ROOT.001", amount: 5, exposure: true, threshold: 50 }],
+  mother: [{ id: "HEALTH.BASIC.ROOT.001", amount: 7, exposure: true, threshold: 50 }],
+  teacher: [{ id: "HEALTH.BASIC.ROOT.001", amount: 4, exposure: true, threshold: 50 }],
+  classmate: [{ id: "HEALTH.BASIC.ROOT.001", amount: 2, exposure: true, threshold: 50 }],
+};
 
 const SOCIAL_NPCS = [
   npc("father", "family", "父亲", "可靠后盾", "关系越高，越可能获得零花钱或实际建议。", 8, 0, 12, [{ id: "item.family.advice", qty: 1 }], [
@@ -214,7 +245,7 @@ const SOCIAL_NPCS = [
 
 const SKILLS = [
   skill("KNOWLEDGE.MATH.ROOT.001", "基础数学", "KNOWLEDGE", "数学", "ROOT", ["SCHOOL", "COLLEGE"], ["intelligence", "discipline"], "提高学习和逻辑类收益。", []),
-  skill("KNOWLEDGE.MATH.BASIC.001", "算术", "KNOWLEDGE", "数学", "BASIC", ["SCHOOL"], ["intelligence"], "提升基础计算和金钱判断。", [reqSkill("KNOWLEDGE.MATH.ROOT.001", 1)]),
+  skill("KNOWLEDGE.MATH.BASIC.001", "算术", "KNOWLEDGE", "数学", "BASIC", ["SCHOOL"], ["intelligence"], "提升基础计算和金钱判断。", [reqSkill("KNOWLEDGE.MATH.ROOT.001", 2)]),
   skill("KNOWLEDGE.MATH.BASIC.002", "代数入门", "KNOWLEDGE", "数学", "BASIC", ["SCHOOL", "COLLEGE"], ["intelligence"], "理解变量、方程和函数。", [reqSkill("KNOWLEDGE.MATH.BASIC.001", 3)]),
   skill("KNOWLEDGE.MATH.BASIC.003", "几何", "KNOWLEDGE", "数学", "BASIC", ["SCHOOL", "COLLEGE"], ["intelligence", "creativity"], "提升空间关系和图形理解。", [reqSkill("KNOWLEDGE.MATH.ROOT.001", 3)]),
   skill("KNOWLEDGE.MATH.BASIC.004", "三角函数", "KNOWLEDGE", "数学", "BASIC", ["SCHOOL", "COLLEGE"], ["intelligence"], "连接几何、函数和图形学。", [reqSkill("KNOWLEDGE.MATH.BASIC.002", 3)]),
@@ -227,18 +258,18 @@ const SKILLS = [
   skill("KNOWLEDGE.MATH.HIDDEN.001", "量化投资", "KNOWLEDGE", "数学", "HIDDEN", ["WORKING", "ONLINE"], ["intelligence", "discipline"], "高收益高波动的投资路线。", [reqSkill("KNOWLEDGE.MATH.BRANCH.002", 5), reqSkill("TECH.PROGRAMMING.BASIC.001", 4), reqSkill("KNOWLEDGE.MATH.APPLICATION.001", 5), reqEvent("hidden_quant_001")]),
 
   skill("KNOWLEDGE.LANGUAGE.ROOT.001", "语文基础", "KNOWLEDGE", "语文", "ROOT", ["SCHOOL", "FAMILY"], ["intelligence", "creativity"], "提高阅读理解、语文成绩和表达类收益。", []),
-  skill("KNOWLEDGE.LANGUAGE.BASIC.001", "文学阅读", "KNOWLEDGE", "语文", "BASIC", ["SCHOOL", "FAMILY"], ["intelligence", "creativity"], "从小说、散文和古文中积累语感与叙事能力。", [reqSkill("KNOWLEDGE.LANGUAGE.ROOT.001", 1)]),
+  skill("KNOWLEDGE.LANGUAGE.BASIC.001", "文学阅读", "KNOWLEDGE", "语文", "BASIC", ["SCHOOL", "FAMILY"], ["intelligence", "creativity"], "从小说、散文和古文中积累语感与叙事能力。", [reqSkill("KNOWLEDGE.LANGUAGE.ROOT.001", 2)]),
   skill("KNOWLEDGE.ENGLISH.ROOT.001", "英语听读", "KNOWLEDGE", "英语", "ROOT", ["SCHOOL", "ONLINE"], ["intelligence", "charm"], "提高英语成绩，也会受沟通表达能力影响。", []),
   skill("KNOWLEDGE.SCIENCE.ROOT.001", "理科基础", "KNOWLEDGE", "理科", "ROOT", ["SCHOOL"], ["intelligence", "discipline"], "连接物理、化学、生物和数学建模。", []),
   skill("KNOWLEDGE.SCIENCE.BASIC.001", "物理直觉", "KNOWLEDGE", "理科", "BASIC", ["SCHOOL"], ["intelligence", "discipline"], "理解力、运动、能量和模型化思考。", [reqSkill("KNOWLEDGE.SCIENCE.ROOT.001", 1), reqSkill("KNOWLEDGE.MATH.ROOT.001", 2)]),
   skill("KNOWLEDGE.SCIENCE.BASIC.002", "化学实验", "KNOWLEDGE", "理科", "BASIC", ["SCHOOL"], ["intelligence", "discipline"], "把物质变化、实验安全和观察记录连起来。", [reqSkill("KNOWLEDGE.SCIENCE.ROOT.001", 1)]),
   skill("KNOWLEDGE.SCIENCE.BASIC.003", "生命科学", "KNOWLEDGE", "理科", "BASIC", ["SCHOOL", "COMMUNITY"], ["intelligence", "stability"], "理解身体、生态和生物系统。", [reqSkill("KNOWLEDGE.SCIENCE.ROOT.001", 2)]),
   skill("KNOWLEDGE.HUMANITIES.ROOT.001", "人文通识", "KNOWLEDGE", "文科", "ROOT", ["SCHOOL", "FAMILY"], ["intelligence", "stability"], "支撑政治、历史、地理和社会理解。", []),
-  skill("KNOWLEDGE.HUMANITIES.BASIC.001", "历史脉络", "KNOWLEDGE", "文科", "BASIC", ["SCHOOL", "FAMILY"], ["intelligence"], "理解事件、人物和时代之间的因果关系。", [reqSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 1)]),
-  skill("KNOWLEDGE.HUMANITIES.BASIC.002", "政治常识", "KNOWLEDGE", "文科", "BASIC", ["SCHOOL"], ["intelligence", "charm"], "理解规则、公共议题和价值判断。", [reqSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 1)]),
+  skill("KNOWLEDGE.HUMANITIES.BASIC.001", "历史脉络", "KNOWLEDGE", "文科", "BASIC", ["SCHOOL", "FAMILY"], ["intelligence"], "理解事件、人物和时代之间的因果关系。", [reqSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 2)]),
+  skill("KNOWLEDGE.HUMANITIES.BASIC.002", "政治常识", "KNOWLEDGE", "文科", "BASIC", ["SCHOOL"], ["intelligence", "charm"], "理解规则、公共议题和价值判断。", [reqSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 2)]),
   skill("KNOWLEDGE.HUMANITIES.BASIC.003", "地理观察", "KNOWLEDGE", "文科", "BASIC", ["SCHOOL", "COMMUNITY"], ["intelligence", "creativity"], "理解空间、环境和区域变化。", [reqSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 2)]),
 
-  skill("TECH.COMPUTER.ROOT.001", "电脑基础", "TECH", "科技", "ROOT", ["SCHOOL", "ONLINE"], ["intelligence"], "开启科技类行动和网络场景。", [anyOf([reqStage("teen"), reqEvent("school_pc_access_001")])]),
+  skill("TECH.COMPUTER.ROOT.001", "电脑基础", "TECH", "科技", "ROOT", ["SCHOOL", "ONLINE"], ["intelligence"], "从网吧上网和实际接触电脑开始，开启科技类行动和网络场景。", []),
   skill("TECH.PROGRAMMING.BASIC.001", "编程入门", "TECH", "编程", "BASIC", ["SCHOOL", "COLLEGE", "ONLINE"], ["intelligence", "discipline"], "学会用程序拆解问题。", [reqSkill("TECH.COMPUTER.ROOT.001", 2), reqSkill("KNOWLEDGE.MATH.BASIC.002", 2)]),
   skill("TECH.PROGRAMMING.BRANCH.001", "数据结构", "TECH", "编程", "BRANCH", ["COLLEGE", "ONLINE"], ["intelligence"], "提高程序开发效率。", [reqSkill("TECH.PROGRAMMING.BASIC.001", 4)]),
   skill("TECH.PROGRAMMING.BRANCH.002", "Web 开发", "TECH", "编程", "BRANCH", ["COLLEGE", "WORKING", "ONLINE"], ["intelligence", "creativity"], "快速获得兼职和职场机会。", [reqSkill("TECH.PROGRAMMING.BASIC.001", 3)]),
@@ -274,10 +305,10 @@ const SKILLS = [
   skill("LIFE.MIND.PASSIVE.002", "毅力", "LIFE", "心智", "PASSIVE", ["SCHOOL", "COLLEGE", "WORKING"], ["discipline", "stability"], "提高长期挂机收益稳定性。", [reqAchievement("achievement_streak_001")]),
   skill("LIFE.MIND.BASIC.001", "情绪管理", "LIFE", "心智", "BASIC", ["SCHOOL", "COLLEGE", "WORKING"], ["stability"], "降低压力收益惩罚。", [reqEvent("state_high_stress_001")]),
   skill("LIFE.PLAY.ROOT.001", "户外玩耍", "LIFE", "玩耍", "ROOT", ["FAMILY", "SCHOOL", "COMMUNITY"], ["fitness", "creativity", "stability"], "在街巷、操场和河边消磨时间，恢复幸福感，也留下少年期记忆。", []),
-  skill("LIFE.PLAY.BASIC.001", "河边抓鱼", "LIFE", "玩耍", "BASIC", ["COMMUNITY"], ["fitness", "stability"], "在河岸边观察水流、耐心等待，偶尔带回一点小收获。", [reqSkill("LIFE.PLAY.ROOT.001", 2)]),
-  skill("LIFE.PLAY.BASIC.002", "篮球", "LIFE", "玩耍", "BASIC", ["SCHOOL", "COMMUNITY"], ["fitness", "charm"], "放学后的球场运动，提升体能，也让同伴关系更自然。", [reqSkill("LIFE.PLAY.ROOT.001", 1)]),
-  skill("LIFE.PLAY.BASIC.003", "足球", "LIFE", "玩耍", "BASIC", ["SCHOOL", "COMMUNITY"], ["fitness", "charm"], "临时组队、奔跑和配合，带来体能与团队感。", [reqSkill("LIFE.PLAY.ROOT.001", 1)]),
-  skill("LIFE.PLAY.BASIC.004", "网吧打游戏", "LIFE", "电玩", "BASIC", ["ONLINE"], ["intelligence", "creativity", "stability"], "花一点零花钱换来放松、键鼠熟悉和游戏体验。", [reqSkill("TECH.COMPUTER.ROOT.001", 1), reqResource("money", 20)]),
+  skill("LIFE.PLAY.BASIC.001", "河边抓鱼", "LIFE", "玩耍", "BASIC", ["COMMUNITY"], ["fitness", "stability"], "在河岸边观察水流、耐心等待，偶尔带回一点小收获。", []),
+  skill("LIFE.PLAY.BASIC.002", "篮球", "LIFE", "玩耍", "BASIC", ["SCHOOL", "COMMUNITY"], ["fitness", "charm"], "放学后的球场运动，提升体能，也让同伴关系更自然。", []),
+  skill("LIFE.PLAY.BASIC.003", "足球", "LIFE", "玩耍", "BASIC", ["SCHOOL", "COMMUNITY"], ["fitness", "charm"], "临时组队、奔跑和配合，带来体能与团队感。", []),
+  skill("LIFE.PLAY.BASIC.004", "网吧打游戏", "LIFE", "电玩", "BASIC", ["ONLINE"], ["intelligence", "creativity", "stability"], "在网吧接触游戏和电脑，花一点零花钱换来放松与新鲜体验。", []),
   skill("LIFE.PLAY.BRANCH.001", "街机手感", "LIFE", "电玩", "BRANCH", ["ONLINE", "COMMUNITY"], ["intelligence", "creativity"], "从重复挑战和即时反馈里练出操作手感。", [reqSkill("LIFE.PLAY.BASIC.004", 2)]),
   skill("LIFE.PLAY.APPLICATION.001", "游戏理解", "LIFE", "电玩", "APPLICATION", ["ONLINE", "STUDIO"], ["intelligence", "creativity"], "理解关卡、节奏、反馈和玩家动机，为未来游戏路线埋下种子。", [reqSkill("LIFE.PLAY.BASIC.004", 3), reqSkill("TECH.COMPUTER.ROOT.001", 2)]),
   skill("LIFE.DAILY.BASIC.001", "烹饪", "LIFE", "生活", "BASIC", ["FAMILY", "COMMUNITY"], ["discipline", "creativity"], "降低生活成本，提高健康恢复。", [reqEvent("family_cooking_001")]),
@@ -285,7 +316,7 @@ const SKILLS = [
   skill("LIFE.EMERGENCY.HIDDEN.001", "急救", "LIFE", "生活", "HIDDEN", ["COMMUNITY", "WORKING"], ["stability"], "降低事故损失，开启公益事件。", [reqEvent("state_accident_001")]),
 
   skill("HEALTH.BASIC.ROOT.001", "健康常识", "HEALTH", "健康", "ROOT", ["FAMILY", "SCHOOL", "COMMUNITY"], ["stability"], "降低疾病事件权重。", []),
-  skill("HEALTH.SPORT.BASIC.001", "运动习惯", "HEALTH", "运动", "BASIC", ["SCHOOL", "COMMUNITY"], ["fitness", "discipline"], "提高健康、体能、纪律。", [anyOf([reqAttr("fitness", 30), reqEvent("sport_invite_001")])]),
+  skill("HEALTH.SPORT.BASIC.001", "运动习惯", "HEALTH", "运动", "BASIC", ["SCHOOL", "COMMUNITY"], ["fitness", "discipline"], "提高健康、体能、纪律。", [anyOf([reqSkill("LIFE.PLAY.BASIC.002", 2), reqSkill("LIFE.PLAY.BASIC.003", 2), reqEvent("sport_invite_001")])]),
   skill("HEALTH.SPORT.BRANCH.001", "力量训练", "HEALTH", "运动", "BRANCH", ["COMMUNITY"], ["fitness", "discipline"], "提高体能上限和健康恢复。", [reqSkill("HEALTH.SPORT.BASIC.001", 3), reqAttr("fitness", 45)]),
   skill("HEALTH.SPORT.BRANCH.002", "有氧训练", "HEALTH", "运动", "BRANCH", ["COMMUNITY"], ["fitness", "stability"], "降低压力，提升精力恢复。", [reqSkill("HEALTH.SPORT.BASIC.001", 3)]),
   skill("HEALTH.LIFE.APPLICATION.001", "营养管理", "HEALTH", "健康", "APPLICATION", ["FAMILY", "COMMUNITY"], ["intelligence", "discipline"], "提高健康恢复，降低生活病事件。", [reqSkill("LIFE.DAILY.BASIC.001", 4), reqSkill("HEALTH.BASIC.ROOT.001", 4)]),
@@ -350,7 +381,7 @@ const CAREERS = [
   career("entrepreneur", "创业者", "高风险高回报，依赖人脉和执行。", [reqStage("work"), reqSkill("CAREER.BUSINESS.PRO.001", 1), reqSkill("LIFE.SOCIAL.APPLICATION.001", 4), reqSkill("LIFE.SOCIAL.BRANCH.002", 4)], 140, 24, ["CAREER.BUSINESS.PRO.001", "CAREER.MANAGEMENT.BRANCH.001"]),
 ];
 
-const EVENTS = [
+const LEGACY_EVENTS = [
   event("social_father_allowance_001", "父亲的额外零花钱", "关系熟起来后，父亲开始更愿意用实际方式支持你。", ["social_relation"], ["teen", "college", "work"], [reqTag("friendship_father_40")], 100, 90, false, [
     choice("收下并记账", [effResource("money", 60), effAttr("discipline", 1)], "你获得了零花钱，也更认真地规划怎么用。"),
     choice("聊聊他的经验", [effSkill("LIFE.MIND.PASSIVE.001", 70), effResource("happiness", 2)], "你听到了一些关于长期坚持的朴素经验。"),
@@ -363,8 +394,8 @@ const EVENTS = [
     choice("积极加入", [effResource("social", 8), effSkill("LIFE.SOCIAL.ROOT.001", 50)], "你在轻松的互动里更自然了。"),
     choice("保持距离", [effResource("stress", -4), effResource("knowledge", 3)], "你保留了自己的节奏。"),
   ]),
-  event("school_pc_access_001", "第一次认真接触电脑", "你在网络世界里发现了新的工具和社区。", ["stage_enter"], ["teen"], [], 100, 0, true, [
-    choice("深入研究", [effSkill("TECH.COMPUTER.ROOT.001", 80), effResource("knowledge", 8)], "电脑基础开始生根。"),
+  event("school_pc_access_001", "第一次认真研究电脑", "几次网吧经历后，你开始注意游戏之外的系统、文件和网络。", ["weekly_check"], ["teen"], [reqSkill("LIFE.PLAY.BASIC.004", 1)], 32, 0, true, [
+    choice("深入研究", [effSkillExposure("TECH.COMPUTER.ROOT.001", 40, 60), effResource("knowledge", 8)], "你开始主动理解电脑是怎么工作的。"),
     choice("只是娱乐", [effResource("happiness", 6), effResource("inspiration", 4)], "你获得了一段轻松的放松时间。"),
   ]),
   event("school_math_interest_001", "数学老师的额外题", "老师递来一张额外习题，题目比课堂内容更绕。", ["weekly_check"], ["teen"], [reqSkill("KNOWLEDGE.MATH.ROOT.001", 2), reqAttr("energy", 30)], 30, 60, false, [
@@ -399,9 +430,9 @@ const EVENTS = [
     choice("蹲下抓鱼", [effSkill("LIFE.PLAY.BASIC.001", 85), effSkill("HEALTH.BASIC.ROOT.001", 25), effResource("happiness", 5), effResource("stamina", -12), effItem("item.play.fish", 1)], "你没抓到多少，但笑了很久。"),
     choice("捡漂亮石头", [effSkill("LIFE.PLAY.ROOT.001", 55), effSkill("ART.CREATIVE.BASIC.003", 25), effResource("happiness", 3), effItem("item.play.river_stone", 1)], "口袋里多了一块很适合把玩的石头。"),
   ]),
-  event("school_net_cafe_001", "网吧开黑", "有人说新游戏更新了，几个人把零花钱凑一凑，放学后去打一小时。", ["weekly_check"], ["teen"], [reqSkill("LIFE.PLAY.BASIC.004", 1), reqResource("money", 12)], 22, 90, false, [
-    choice("组队开黑", [effSkill("LIFE.PLAY.BASIC.004", 80), effSkill("LIFE.SOCIAL.ROOT.001", 30), effResource("money", -12), effResource("stamina", -10), effResource("happiness", 7), effItem("item.play.arcade_ticket", 1)], "配合、吵闹和胜负欲搅在一起，像一段偷偷亮着的青春。"),
-    choice("研究打法", [effSkill("LIFE.PLAY.APPLICATION.001", 55), effSkill("TECH.COMPUTER.ROOT.001", 25), effResource("money", -8), effResource("happiness", 4)], "你开始注意到关卡节奏、反馈和数值手感。"),
+  event("school_net_cafe_001", "网吧开黑", "有人说新游戏更新了，几个人把零花钱凑一凑，放学后去打一小时。", ["weekly_check"], ["teen"], [reqSkill("LIFE.PLAY.ROOT.001", 1), reqResource("money", 12)], 22, 6, false, [
+    choice("组队开黑", [effSkill("LIFE.PLAY.BASIC.004", 80), effSkillExposure("TECH.COMPUTER.ROOT.001", 25, 60), effSkillExposure("LIFE.SOCIAL.ROOT.001", 18, 60), effResource("money", -12), effResource("stamina", -10), effResource("happiness", 7), effItem("item.play.arcade_ticket", 1)], "配合、吵闹和胜负欲搅在一起，像一段偷偷亮着的青春。"),
+    choice("研究打法", [effSkill("LIFE.PLAY.BASIC.004", 65), effSkillExposure("TECH.COMPUTER.ROOT.001", 35, 60), effResource("money", -8), effResource("happiness", 4)], "你开始注意到键鼠、系统和游戏反馈背后的规律。"),
   ]),
   event("online_forum_001", "网络社区启蒙", "你看到陌生人分享代码、画作和学习笔记。", ["weekly_check"], ["teen"], [reqSkill("TECH.COMPUTER.ROOT.001", 1)], 22, 60, false, [
     choice("潜水学习", [effSkill("TECH.PROGRAMMING.BASIC.001", 55), effResource("knowledge", 5)], "你开始照着教程敲下第一行代码。"),
@@ -581,6 +612,8 @@ const EVENTS = [
   ]),
 ];
 
+const EVENTS = [...LEGACY_EVENTS, ...loadContentEvents()];
+
 const MAJOR_EVENTS = [
   majorEvent("major_subject_track_001", "文理分科", "高一结束前，你需要给之后两年的学习路线定一个方向。文科更重视语文、人文通识和表达，理科更重视数学、理科基础和实验能力。", SUBJECT_TRACK_MONTH, ["teen"], [], true, [
     choice("选择文科", [effTag("track_liberal_arts"), effSkill("KNOWLEDGE.HUMANITIES.ROOT.001", 120), effSkill("KNOWLEDGE.LANGUAGE.ROOT.001", 80), effResource("happiness", 2)], "你选择了文科路线。之后高考会考政治、历史、地理。"),
@@ -635,7 +668,20 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function skill(id, name, domain, branch, type, scenes, relatedAttrs, desc, unlock) {
-  return { id, name, domain, branch, type, scenes, relatedAttrs, desc, unlock, max: 10 };
+  return {
+    id,
+    name,
+    domain,
+    branch,
+    type,
+    scenes,
+    relatedAttrs,
+    desc,
+    unlock,
+    max: 10,
+    starter: STARTER_SKILL_IDS.has(id),
+    ...(SKILL_TRAINING_RULES[id] || {}),
+  };
 }
 
 function career(id, name, desc, requirements, income, stress, focusSkills) {
@@ -644,6 +690,81 @@ function career(id, name, desc, requirements, income, stress, focusSkills) {
 
 function event(id, title, text, triggers, stages, conditions, weight, cooldown, once, choices) {
   return { id, title, text, triggers, stages, conditions, weight, cooldown, once, choices };
+}
+
+function loadContentEvents() {
+  const packs = Array.isArray(globalThis.LIFE_EVENT_PACKS) ? globalThis.LIFE_EVENT_PACKS : [];
+  return packs.flatMap(pack => (Array.isArray(pack.events) ? pack.events : []).map(item => ({
+    id: item.id,
+    title: item.title,
+    text: item.text,
+    type: item.type || "random",
+    triggers: [item.trigger?.source || "manual"],
+    triggerSpec: item.trigger || { source: "manual" },
+    stages: item.stages || [],
+    conditions: item.conditions || [],
+    weight: item.repeat?.weight ?? 10,
+    cooldown: item.repeat?.cooldown ?? 0,
+    once: Boolean(item.repeat?.once),
+    choices: item.choices || [],
+    contentPack: pack.id,
+  })));
+}
+
+function validateGameContent() {
+  const issues = [];
+  const skillIds = new Set(SKILLS.map(item => item.id));
+  const npcIds = new Set(SOCIAL_NPCS.map(item => item.id));
+  const itemIds = new Set(INVENTORY_ITEMS.map(item => item.id));
+  const careerIds = new Set(CAREERS.map(item => item.id));
+  const allowedSources = new Set(["skill", "social", "time", "resource", "item", "career", "manual"]);
+  const allowedEffects = new Set(["resource", "attr", "skillXp", "skillExposure", "unlockSkill", "trainingAccess", "staminaMax", "tag", "project", "item"]);
+  const allEventIds = [...EVENTS, ...MAJOR_EVENTS].map(item => item.id);
+  const eventIds = new Set(allEventIds);
+
+  const validateRequirement = (req, ownerId) => {
+    if (!req) return;
+    if (req.type === "skill" && !skillIds.has(req.id)) issues.push(`${ownerId} 的条件引用了不存在的技能：${req.id}`);
+    if (req.type === "event" && !eventIds.has(req.id)) issues.push(`${ownerId} 的条件引用了不存在的事件：${req.id}`);
+    if (req.type === "career" && !careerIds.has(req.id)) issues.push(`${ownerId} 的条件引用了不存在的职业：${req.id}`);
+    if (req.type === "anyOf") (req.items || []).forEach(child => validateRequirement(child, ownerId));
+  };
+
+  findDuplicates(SKILLS.map(item => item.id)).forEach(id => issues.push(`重复技能 ID：${id}`));
+  findDuplicates(allEventIds).forEach(id => issues.push(`重复事件 ID：${id}`));
+
+  EVENTS.filter(item => item.contentPack).forEach(item => {
+    if (!item.title || !item.text) issues.push(`${item.id} 缺少标题或正文`);
+    if (!item.choices.length) issues.push(`${item.id} 没有可选项`);
+    const trigger = item.triggerSpec || {};
+    if (!allowedSources.has(trigger.source)) issues.push(`${item.id} 使用了未知触发来源：${trigger.source}`);
+    if (trigger.skillId && !skillIds.has(trigger.skillId)) issues.push(`${item.id} 引用了不存在的触发技能：${trigger.skillId}`);
+    if (trigger.npcId && !npcIds.has(trigger.npcId)) issues.push(`${item.id} 引用了不存在的 NPC：${trigger.npcId}`);
+    if (trigger.itemId && !itemIds.has(trigger.itemId)) issues.push(`${item.id} 引用了不存在的触发道具：${trigger.itemId}`);
+    if (trigger.careerId && !careerIds.has(trigger.careerId)) issues.push(`${item.id} 引用了不存在的职业：${trigger.careerId}`);
+    item.conditions.forEach(req => validateRequirement(req, item.id));
+    item.choices.forEach((choiceItem, choiceIndex) => {
+      if (!choiceItem.text || !choiceItem.result) issues.push(`${item.id} 的第 ${choiceIndex + 1} 个选项缺少文案`);
+      (choiceItem.effects || []).forEach(effect => {
+        if (!allowedEffects.has(effect.type)) issues.push(`${item.id} 使用了未知效果：${effect.type}`);
+        if (["skillXp", "skillExposure", "unlockSkill", "trainingAccess"].includes(effect.type) && !skillIds.has(effect.id)) {
+          issues.push(`${item.id} 引用了不存在的技能：${effect.id}`);
+        }
+        if (effect.type === "item" && !itemIds.has(effect.id)) issues.push(`${item.id} 引用了不存在的道具：${effect.id}`);
+      });
+    });
+  });
+
+  return issues;
+}
+
+function findDuplicates(values) {
+  const seen = new Set();
+  return Array.from(new Set(values.filter(value => {
+    if (seen.has(value)) return true;
+    seen.add(value);
+    return false;
+  })));
 }
 
 function majorEvent(id, title, text, month, stages, conditions, once, choices) {
@@ -752,6 +873,22 @@ function effAttr(key, amount) {
 
 function effSkill(id, amount) {
   return { type: "skillXp", id, amount };
+}
+
+function effSkillExposure(id, amount, threshold) {
+  return { type: "skillExposure", id, amount, threshold };
+}
+
+function effUnlockSkill(id) {
+  return { type: "unlockSkill", id };
+}
+
+function effTrainingAccess(id) {
+  return { type: "trainingAccess", id };
+}
+
+function effStaminaMax(amount) {
+  return { type: "staminaMax", amount };
 }
 
 function effTag(id) {
@@ -891,10 +1028,15 @@ function createNewState() {
     majorEventQueue: [],
     eventHistory: [],
     eventCooldowns: {},
+    eventTriggerCounts: {},
     completedEvents: {},
     examResults: {},
     achievements: {},
     tags: {},
+    skillTrainingAccess: {},
+    permanentBonuses: {
+      staminaMax: 0,
+    },
     logs: [],
     projectProgress: 0,
     lastSkillGains: {},
@@ -911,8 +1053,8 @@ function createNewState() {
   };
 
   SKILLS.forEach(item => {
-    const auto = item.unlock.length === 0;
-    next.skills[item.id] = { level: auto ? 1 : 0, xp: 0, unlocked: auto };
+    const unlocked = item.starter;
+    next.skills[item.id] = { level: unlocked ? 1 : 0, xp: 0, discoveryXp: 0, unlocked };
   });
   SOCIAL_NPCS.forEach(item => {
     next.social.npcs[item.id] = { friendship: 0, interactions: 0 };
@@ -950,7 +1092,7 @@ function loadState() {
 
 function migrateState(loaded) {
   const fresh = createNewState();
-  const merged = { ...fresh, ...loaded };
+  const merged = { ...fresh, ...loaded, version: VERSION };
   merged.attrs = { ...fresh.attrs, ...(loaded.attrs || {}) };
   merged.resources = { ...fresh.resources, ...(loaded.resources || {}) };
   if (!loaded.resources?.stamina && loaded.attrs?.energy !== undefined) {
@@ -967,8 +1109,18 @@ function migrateState(loaded) {
   merged.stats = { ...fresh.stats, ...(loaded.stats || {}) };
   merged.skills = { ...fresh.skills, ...(loaded.skills || {}) };
   SKILLS.forEach(item => {
-    if (!merged.skills[item.id]) merged.skills[item.id] = { level: 0, xp: 0, unlocked: false };
+    const record = merged.skills[item.id] || {};
+    merged.skills[item.id] = {
+      level: record.level || 0,
+      xp: record.xp || 0,
+      discoveryXp: record.discoveryXp || 0,
+      unlocked: Boolean(record.unlocked),
+    };
+    if (loaded.version !== VERSION && !item.starter && totalSkillXp(merged.skills[item.id]) <= 0) {
+      merged.skills[item.id] = { level: 0, xp: 0, discoveryXp: 0, unlocked: false };
+    }
   });
+  STARTER_SKILL_IDS.forEach(id => unlockSkill(merged, id, { announce: false }));
   merged.social = {
     ...fresh.social,
     ...(loaded.social || {}),
@@ -981,6 +1133,9 @@ function migrateState(loaded) {
     merged.social.action = null;
   }
   merged.inventory = { ...fresh.inventory, ...(loaded.inventory || {}) };
+  merged.eventTriggerCounts = { ...fresh.eventTriggerCounts, ...(loaded.eventTriggerCounts || {}) };
+  merged.skillTrainingAccess = { ...fresh.skillTrainingAccess, ...(loaded.skillTrainingAccess || {}) };
+  merged.permanentBonuses = { ...fresh.permanentBonuses, ...(loaded.permanentBonuses || {}) };
   merged.careerRank = {
     ...fresh.careerRank,
     ...(loaded.careerRank || {}),
@@ -988,7 +1143,7 @@ function migrateState(loaded) {
   merged.resources.careerLevel = careerRankValue(merged);
   delete merged.schedule;
   merged.training = loaded.training || fresh.training;
-  if (!merged.training.skillId || !merged.skills[merged.training.skillId]?.unlocked) {
+  if (!merged.training.skillId || !canTrainSkill(merged, getSkill(merged.training.skillId))) {
     merged.training = { ...fresh.training, startedAt: Date.now() };
   }
   merged.eventQueue = Array.isArray(loaded.eventQueue) ? loaded.eventQueue : [];
@@ -996,6 +1151,7 @@ function migrateState(loaded) {
   merged.eventHistory = Array.isArray(loaded.eventHistory) ? loaded.eventHistory : [];
   merged.examResults = { ...fresh.examResults, ...(loaded.examResults || {}) };
   merged.logs = Array.isArray(loaded.logs) ? loaded.logs : fresh.logs;
+  merged.resources.stamina = clamp(merged.resources.stamina, 0, getMaxStamina(merged));
   return merged;
 }
 
@@ -1117,7 +1273,7 @@ function processSocialTicks() {
 function completeTrainingTick(source = "技能训练", silent = false, showGainToast = !silent) {
   const skillId = state.training?.skillId;
   const skillItem = getSkill(skillId);
-  if (!skillItem || !isUnlocked(state, skillId)) return 0;
+  if (!skillItem || !canTrainSkill(state, skillItem)) return 0;
 
   const entry = getTrainingEntry(skillId);
   const action = ACTIONS[entry.action] || ACTIONS.study;
@@ -1126,14 +1282,23 @@ function completeTrainingTick(source = "技能训练", silent = false, showGainT
 
   const result = calculateActionXp(entry, state.sceneId);
   addSkillXp(skillId, result.xp, source, result.boostInfo, { toast: showGainToast });
+  applyPassiveSkillGrowth(skillId, showGainToast);
   state.training.completions = (state.training.completions || 0) + 1;
   state.stats.trainingTicks = (state.stats.trainingTicks || 0) + 1;
+  dispatchEventTrigger({ source: "skill", skillId, actionId: entry.action }, 1);
 
   if (state.stats.trainingTicks % 16 === 0) {
     updateDailyTrainingStats(entry.action);
     state.day += 1;
     refreshStage(state, true);
     recoverDaily();
+    dispatchEventTrigger({
+      source: "time",
+      month: getCalendarInfo(state.day).month,
+      monthIndex: state.day,
+      age: state.age,
+      stageId: state.stageId,
+    }, 1);
     queueEvents("resource_state", 1);
     queueEvents("weekly_check", 1);
     queueEvents("monthly_check", 1);
@@ -1164,6 +1329,11 @@ function startTraining(skillId) {
   if (!item) return;
   if (!isUnlocked(state, skillId)) {
     pushLog(`${item.name} 尚未解锁：${missingRequirements(item.unlock)}`);
+    render();
+    return;
+  }
+  if (!canTrainSkill(state, item)) {
+    pushLog(`${item.name} 当前主要通过生活经历提升，暂时不能主动挂机训练。`);
     render();
     return;
   }
@@ -1315,6 +1485,15 @@ function addResource(key, amount, options = {}) {
   const before = state.resources[normalized.key];
   state.resources[normalized.key] = Math.round(clamp(before + normalized.amount, resourceMin(normalized.key), resourceMax(normalized.key)));
   const changed = state.resources[normalized.key] - before;
+  if (changed !== 0) {
+    dispatchEventTrigger({
+      source: "resource",
+      resourceKey: normalized.key,
+      before,
+      value: state.resources[normalized.key],
+      change: changed,
+    }, 1);
+  }
   if (options.toast && changed !== 0 && isCoreResource(normalized.key)) {
     const direction = changed > 0 ? "gain" : "cost";
     showToast({
@@ -1388,7 +1567,23 @@ function isCoreResource(key) {
 }
 
 function getMaxStamina(target = state) {
-  return BASE_STAMINA_MAX + Math.max(0, getLevel(target, "HEALTH.SPORT.BRANCH.001") - 1) * 40;
+  const skillBonus = [
+    ["LIFE.PLAY.ROOT.001", 5],
+    ["LIFE.PLAY.BASIC.002", 15],
+    ["LIFE.PLAY.BASIC.003", 15],
+    ["HEALTH.SPORT.BASIC.001", 25],
+  ].reduce((total, [id, perLevel]) => total + Math.max(0, getLevel(target, id) - 1) * perLevel, 0);
+  const strengthBonus = Math.max(0, getLevel(target, "HEALTH.SPORT.BRANCH.001") - 1) * 40;
+  return BASE_STAMINA_MAX + skillBonus + strengthBonus + Math.max(0, target.permanentBonuses?.staminaMax || 0);
+}
+
+function addPermanentStaminaMax(amount, source = "事件") {
+  const gained = Math.max(0, Math.round(amount || 0));
+  if (!gained) return;
+  if (!state.permanentBonuses) state.permanentBonuses = { staminaMax: 0 };
+  state.permanentBonuses.staminaMax = (state.permanentBonuses.staminaMax || 0) + gained;
+  state.resources.stamina = clamp(state.resources.stamina + gained, 0, getMaxStamina(state));
+  pushLog(`${source}：体力上限 +${gained}`);
 }
 
 function resourceToastVerb(key, direction) {
@@ -1472,13 +1667,10 @@ function addSkillXp(id, amount, source = "成长", boostInfo = null, options = {
   const record = state.skills[id];
   const item = getSkill(id);
   if (!record || !item) return;
-  if (!record.unlocked) {
-    record.unlocked = true;
-    record.level = Math.max(record.level, 1);
-    pushLog(`解锁技能：${item.name}`);
-  }
+  if (!record.unlocked) unlockSkill(state, id, { announce: true });
 
   if (record.level >= item.max) return;
+  const staminaMaxBefore = getMaxStamina(state);
   const gained = Math.max(0, amount);
   record.xp += gained;
   if (options.toast && gained > 0) {
@@ -1502,11 +1694,70 @@ function addSkillXp(id, amount, source = "成长", boostInfo = null, options = {
   }
 
   if (leveled) {
+    const staminaMaxAfter = getMaxStamina(state);
+    const staminaMaxGain = Math.max(0, staminaMaxAfter - staminaMaxBefore);
+    if (staminaMaxGain > 0) {
+      state.resources.stamina = clamp(state.resources.stamina + staminaMaxGain, 0, staminaMaxAfter);
+      pushLog(`${item.name} 提升了体力上限 ${staminaMaxGain} 点。`);
+      if (options.toast) {
+        showToast({
+          type: "attr",
+          direction: "gain",
+          key: "resource:staminaMax:gain",
+          target: "体力上限",
+          amount: staminaMaxGain,
+          unit: "点",
+          verb: "提升",
+          detail: item.name,
+        });
+      }
+    }
     pushLog(`${item.name} 提升到 ${record.level} 级。`);
     if (boostInfo && boostInfo.total > 0) {
       pushLog(`${item.name} 获得学习加速 +${Math.round(boostInfo.total * 100)}%。`);
     }
     checkUnlocks(state);
+  }
+}
+
+function addSkillExposure(id, amount, threshold = 50, source = "生活经历", options = {}) {
+  const record = state.skills[id];
+  const item = getSkill(id);
+  if (!record || !item || amount <= 0) return false;
+  if (record.unlocked) {
+    addSkillXp(id, amount, source, null, options);
+    return false;
+  }
+
+  record.discoveryXp = Math.max(0, (record.discoveryXp || 0) + amount);
+  if (record.discoveryXp < threshold) return false;
+  unlockSkill(state, id, { announce: true });
+  record.discoveryXp = threshold;
+  return true;
+}
+
+function unlockSkill(target, id, options = {}) {
+  const record = target?.skills?.[id];
+  const item = getSkill(id);
+  if (!record || !item || record.unlocked) return false;
+  record.unlocked = true;
+  record.level = Math.max(record.level || 0, 1);
+  pushLogTo(target, `解锁技能：${item.name}`);
+  if (options.announce !== false && target === state) {
+    showToast({
+      type: "info",
+      direction: "gain",
+      key: `skill-unlock:${id}`,
+      title: `解锁新技能：${item.name}`,
+      detail: item.growthHint || "新的成长路线已经出现。",
+    });
+  }
+  return true;
+}
+
+function applyPassiveSkillGrowth(skillId, showGainToast = false) {
+  if (skillId === "LIFE.PLAY.BASIC.004") {
+    addSkillExposure("TECH.COMPUTER.ROOT.001", 8, 60, "网吧上网", { toast: showGainToast });
   }
 }
 
@@ -1609,10 +1860,9 @@ function checkUnlocks(target) {
     SKILLS.forEach(item => {
       const record = target.skills[item.id];
       if (record.unlocked) return;
-      if (meetsAll(target, item.unlock)) {
-        record.unlocked = true;
-        record.level = Math.max(record.level, 1);
-        pushLogTo(target, `解锁技能：${item.name}`);
+      const canAutoUnlock = item.starter || (item.unlock.length > 0 && meetsAll(target, item.unlock));
+      if (canAutoUnlock) {
+        unlockSkill(target, item.id, { announce: target === state });
         changed = true;
       }
     });
@@ -1690,7 +1940,16 @@ function queueEvents(trigger, limit = 1) {
   queueEventsFor(state, trigger, limit);
 }
 
-function queueEventsFor(target, trigger, limit = 1) {
+function dispatchEventTrigger(context, limit = 1) {
+  if (!state || !context?.source) return;
+  if (!state.eventTriggerCounts) state.eventTriggerCounts = {};
+  const subjectId = context.skillId || context.npcId || context.resourceKey || context.itemId || context.careerId || "global";
+  const key = [context.source, subjectId, context.actionId || "any"].join(":");
+  state.eventTriggerCounts[key] = (state.eventTriggerCounts[key] || 0) + 1;
+  queueEventsFor(state, context.source, limit, { ...context, count: state.eventTriggerCounts[key] });
+}
+
+function queueEventsFor(target, trigger, limit = 1, context = {}) {
   const maxQueue = trigger === "stage_enter" ? 5 : 3;
   if (target.eventQueue.length >= maxQueue) return;
   const candidates = EVENTS.filter(item => {
@@ -1699,6 +1958,7 @@ function queueEventsFor(target, trigger, limit = 1) {
     if (target.eventQueue.includes(item.id)) return false;
     if (item.stages.length && !item.stages.includes(target.stageId)) return false;
     if ((target.eventCooldowns[item.id] || 0) > target.day) return false;
+    if (!matchesEventTrigger(item, trigger, context)) return false;
     return meetsAll(target, item.conditions);
   });
 
@@ -1710,6 +1970,26 @@ function queueEventsFor(target, trigger, limit = 1) {
     candidates.splice(candidates.indexOf(picked), 1);
     pushLogTo(target, `触发事件：${picked.title}`);
   }
+}
+
+function matchesEventTrigger(item, trigger, context = {}) {
+  const spec = item.triggerSpec;
+  if (!spec) return true;
+  if (spec.source && spec.source !== trigger) return false;
+  if (spec.skillId && spec.skillId !== context.skillId) return false;
+  if (spec.npcId && spec.npcId !== context.npcId) return false;
+  if (spec.actionId && spec.actionId !== context.actionId) return false;
+  if (spec.resourceKey && spec.resourceKey !== context.resourceKey) return false;
+  if (spec.itemId && spec.itemId !== context.itemId) return false;
+  if (spec.careerId && spec.careerId !== context.careerId) return false;
+  if (spec.stageId && spec.stageId !== context.stageId) return false;
+  if (spec.month && spec.month !== context.month) return false;
+  if (spec.minValue !== undefined && (context.value ?? -Infinity) < spec.minValue) return false;
+  if (spec.maxValue !== undefined && (context.value ?? Infinity) > spec.maxValue) return false;
+  if (spec.minFriendship && (context.friendship || 0) < spec.minFriendship) return false;
+  if (spec.interval && ((context.count || 0) === 0 || context.count % spec.interval !== 0)) return false;
+  if (spec.chance !== undefined && Math.random() > clamp(spec.chance, 0, 1)) return false;
+  return true;
 }
 
 function queueSpecificEvent(id) {
@@ -1935,7 +2215,23 @@ function applyEffects(effects = [], source = "") {
         addAttr(effect.key, effect.amount);
         break;
       case "skillXp":
-        addSkillXp(effect.id, effect.amount, source);
+        if (!isUnlocked(state, effect.id) && SKILL_DISCOVERY_THRESHOLDS[effect.id]) {
+          addSkillExposure(effect.id, effect.amount, SKILL_DISCOVERY_THRESHOLDS[effect.id], source);
+        } else {
+          addSkillXp(effect.id, effect.amount, source);
+        }
+        break;
+      case "skillExposure":
+        addSkillExposure(effect.id, effect.amount, effect.threshold, source);
+        break;
+      case "unlockSkill":
+        unlockSkill(state, effect.id, { announce: true });
+        break;
+      case "trainingAccess":
+        state.skillTrainingAccess[effect.id] = true;
+        break;
+      case "staminaMax":
+        addPermanentStaminaMax(effect.amount, source);
         break;
       case "tag":
         state.tags[effect.id] = true;
@@ -2032,6 +2328,13 @@ function socializeWithNpc(npcId, shouldRender = true, actionId = "talk", showGai
   const bonusText = resolveSocialBonuses(npcItem);
   markSocialThresholds(npcItem, beforeFriendship, record.friendship);
   queueEvents("social_relation", 1);
+  dispatchEventTrigger({
+    source: "social",
+    npcId: npcItem.id,
+    actionId: actionItem.id,
+    friendship: record.friendship,
+    interactions: record.interactions,
+  }, 1);
   checkUnlocks(state);
   checkAchievements();
   pushLog(`${npcItem.name}${actionItem.name}完成：获得 ${itemText.join("、")}，友好度 +${profile.friendshipGain}${bonusText ? `；${bonusText}` : ""}`);
@@ -2091,7 +2394,11 @@ function applySocialBonusEffects(effects = [], source = "") {
 function applySocialSkillEffects(effects = [], source = "", showGainToast = true) {
   effects.forEach(effect => {
     if (effect.unlockedOnly && !isUnlocked(state, effect.id)) return;
-    addSkillXp(effect.id, effect.amount, source, null, { toast: showGainToast });
+    if (effect.exposure) {
+      addSkillExposure(effect.id, effect.amount, effect.threshold, source, { toast: showGainToast });
+    } else {
+      addSkillXp(effect.id, effect.amount, source, null, { toast: showGainToast });
+    }
   });
 }
 
@@ -2107,6 +2414,7 @@ function markSocialThresholds(npcItem, before, after) {
 function addInventoryItem(id, count = 1) {
   if (!getInventoryItem(id)) return;
   state.inventory[id] = (state.inventory[id] || 0) + count;
+  dispatchEventTrigger({ source: "item", itemId: id, count, total: state.inventory[id] }, 1);
 }
 
 function canSocialize(npcItem, actionId = "talk") {
@@ -2181,6 +2489,8 @@ function renderSidebarSkills() {
     "KNOWLEDGE.LANGUAGE.ROOT.001",
     "KNOWLEDGE.ENGLISH.ROOT.001",
     "KNOWLEDGE.SCIENCE.ROOT.001",
+    "KNOWLEDGE.SCIENCE.BASIC.001",
+    "KNOWLEDGE.SCIENCE.BASIC.002",
     "KNOWLEDGE.HUMANITIES.ROOT.001",
     "TECH.COMPUTER.ROOT.001",
     "TECH.PROGRAMMING.BASIC.001",
@@ -2200,22 +2510,21 @@ function renderSidebarSkills() {
   const visible = preferred
     .map(id => getSkill(id))
     .filter(Boolean)
-    .filter(item => isUnlocked(state, item.id) || canAlmostUnlock(item));
+    .filter(item => canTrainSkill(state, item));
 
   DOM.sidebarSkillList.innerHTML = visible.map(item => {
     const record = state.skills[item.id];
-    const unlocked = record.unlocked;
     const need = xpNeed(record.level || 1);
-    const pct = unlocked ? clamp((record.xp / need) * 100, 0, 100) : 0;
+    const pct = clamp((record.xp / need) * 100, 0, 100);
     const gain = state.lastSkillGains?.[item.id] || 0;
     return `
-      <button class="sidebar-skill ${unlocked ? "" : "locked"} ${state.training?.skillId === item.id ? "active" : ""}" type="button" data-train-skill="${item.id}">
+      <button class="sidebar-skill ${state.training?.skillId === item.id ? "active" : ""}" type="button" data-train-skill="${item.id}">
         <span class="skill-dot ${item.domain.toLowerCase()}"></span>
         <span class="sidebar-skill-main">
           <span>${item.name}</span>
           <span class="sidebar-skill-bar"><span style="width:${pct}%"></span></span>
         </span>
-        <span class="sidebar-skill-level">${unlocked ? `Lv.${record.level}` : "锁"}</span>
+        <span class="sidebar-skill-level">Lv.${record.level}</span>
         ${gain ? `<span class="sidebar-skill-gain">+${gain}</span>` : ""}
       </button>
     `;
@@ -2254,7 +2563,7 @@ function renderHome() {
 function renderTrainingPanel() {
   const skillId = state.training?.skillId;
   const target = getSkill(skillId);
-  if (!target || !isUnlocked(state, skillId)) {
+  if (!target || !canTrainSkill(state, target)) {
     return `<div class="empty-state">点击左侧或技能页中的已解锁技能，即可开始挂机训练。</div>`;
   }
 
@@ -2310,7 +2619,9 @@ function meter(name, value, color) {
 }
 
 function renderSkills() {
-  const filters = ["ALL", ...Array.from(new Set(SKILLS.map(item => item.domain)))];
+  const unlockedSkills = getUnlockedSkills();
+  const filters = ["ALL", ...Array.from(new Set(unlockedSkills.map(item => item.domain)))];
+  if (!filters.includes(activeSkillFilter)) activeSkillFilter = "ALL";
   const names = { ALL: "全部", KNOWLEDGE: "知识", TECH: "科技", ART: "艺术", LIFE: "生活", HEALTH: "健康", CAREER: "职业" };
   DOM.skillFilters.innerHTML = filters.map(id => `<button type="button" data-filter="${id}" class="${activeSkillFilter === id ? "active" : ""}">${names[id] || id}</button>`).join("");
   DOM.skillFilters.querySelectorAll("button").forEach(button => {
@@ -2320,42 +2631,42 @@ function renderSkills() {
     });
   });
 
-  const list = SKILLS.filter(item => activeSkillFilter === "ALL" || item.domain === activeSkillFilter);
-  DOM.skillGrid.innerHTML = list.map(item => renderSkillCard(item)).join("");
+  const list = unlockedSkills.filter(item => activeSkillFilter === "ALL" || item.domain === activeSkillFilter);
+  DOM.skillGrid.innerHTML = list.map(item => renderSkillCard(item)).join("") || `<div class="empty-state">当前还没有发现这个领域的技能。</div>`;
 }
 
 function renderSkillCard(item) {
   const record = state.skills[item.id];
-  const unlocked = record.unlocked;
+  const trainable = canTrainSkill(state, item);
   const boostInfo = getBoostInfo(item.id);
   const need = xpNeed(record.level || 1);
-  const xpPct = unlocked ? clamp((record.xp / need) * 100, 0, 100) : 0;
-  const reqText = unlocked ? item.desc : missingRequirements(item.unlock);
+  const xpPct = clamp((record.xp / need) * 100, 0, 100);
+  const reqText = item.desc;
   const boostText = boostInfo.parts.length
     ? `学习加速：${boostInfo.parts.map(part => `${part.sourceName} +${Math.round(part.bonus * 100)}%`).join("、")}`
     : "";
   const lastGain = state.lastSkillGains?.[item.id] || 0;
-  const isTraining = state.training?.skillId === item.id;
+  const isTraining = trainable && state.training?.skillId === item.id;
   const cdProgress = isTraining ? getTrainingProgress() : { pct: 0, remaining: getTrainingDuration(item.id) };
   const cdFillAttr = isTraining ? "data-skill-card-cd-progress" : "";
   const cdTimeAttr = isTraining ? "data-skill-card-cd-time" : "";
   return `
-    <article class="skill-card ${unlocked ? "" : "locked"} ${isTraining ? "active" : ""}" ${unlocked ? `data-train-skill="${item.id}" role="button" tabindex="0"` : ""}>
+    <article class="skill-card ${trainable ? "" : "passive-growth"} ${isTraining ? "active" : ""}" ${trainable ? `data-train-skill="${item.id}" role="button" tabindex="0"` : ""}>
       <div class="skill-head">
         <div>
           <div class="skill-name">${item.name}</div>
           <div class="item-meta">${domainName(item.domain)} · ${item.branch} · ${typeName(item.type)}</div>
         </div>
-        <span class="badge ${unlocked ? "" : "soft"}">${unlocked ? `Lv.${record.level}` : "未解锁"}</span>
+        <span class="badge ${trainable ? "" : "soft"}">${trainable ? `Lv.${record.level}` : "生活成长"}</span>
       </div>
       <div class="skill-card-bars">
         <div class="compact-readout">
-          <div class="readout-label"><span>经验</span><strong>${unlocked ? `${Math.round(record.xp)}/${need}` : ""}</strong></div>
+          <div class="readout-label"><span>经验</span><strong>${Math.round(record.xp)}/${need}</strong></div>
           <div class="training-progress-frame compact-frame xp-frame">
             <div class="training-progress-fill xp-fill" style="width:${xpPct}%"></div>
           </div>
         </div>
-        ${unlocked ? `
+        ${trainable ? `
           <div class="compact-readout">
             <div class="readout-label"><span>技能 CD</span><strong ${cdTimeAttr}>${isTraining ? `${(cdProgress.remaining / 1000).toFixed(1)} 秒` : "点击训练"}</strong></div>
             <div class="training-progress-frame compact-frame cd-frame">
@@ -2365,7 +2676,7 @@ function renderSkillCard(item) {
         ` : ""}
       </div>
       <div class="skill-desc">${reqText}</div>
-      ${unlocked ? `<div class="boost-text">${isTraining ? "正在挂机训练" : "点击开始挂机"}</div>` : ""}
+      <div class="boost-text">${trainable ? (isTraining ? "正在挂机训练" : "点击开始挂机") : (item.growthHint || "当前主要通过生活经历提升。")}</div>
       ${lastGain ? `<div class="boost-text">本次挂机经验 +${lastGain}</div>` : ""}
       ${boostText ? `<div class="boost-text">${boostText}</div>` : ""}
     </article>
@@ -2624,6 +2935,7 @@ function renderCareers() {
       if (state.stageId === "work" && !state.careerRank) state.careerRank = { tier: 1, step: 1 };
       state.resources.careerLevel = careerRankValue(state);
       pushLog(`职业切换为：${getCareer(state.careerId).name}`);
+      dispatchEventTrigger({ source: "career", careerId: state.careerId, actionId: "selected", stageId: state.stageId }, 1);
       saveState();
       render();
     });
@@ -2789,7 +3101,7 @@ function getSocialActionProfile(npcItem, actionItem = getSocialAction("talk")) {
     energyCost: rawEnergyCost ? Math.max(1, Math.round(rawEnergyCost / 4)) : 0,
     moneyCost: Math.max(0, (npcItem.moneyCost || 0) + (actionItem.moneyCost || 0)),
     friendshipGain: Math.max(0, (npcItem.friendshipGain || 0) + (actionItem.friendshipGain || 0)),
-    skillXp: actionItem.skillXp || [],
+    skillXp: [...(actionItem.skillXp || []), ...(SOCIAL_NPC_SKILL_EXPOSURE[npcItem.id] || [])],
   };
 }
 
@@ -2820,6 +3132,13 @@ function getUnlockedSkills() {
 
 function isUnlocked(target, id) {
   return Boolean(target.skills[id]?.unlocked);
+}
+
+function canTrainSkill(target, item) {
+  if (!target || !item || !isUnlocked(target, item.id)) return false;
+  if (target.skillTrainingAccess?.[item.id]) return true;
+  if (!item.trainableStages?.length) return true;
+  return item.trainableStages.includes(target.stageId);
 }
 
 function getLevel(target, id) {
@@ -2862,6 +3181,7 @@ function resourceName(key) {
 
 function getDisplayResourceValue(key, target = state) {
   if (key === "careerLevel") return getCareerLevelLabel(target);
+  if (key === "stamina") return `${Math.round(getResourceValue(target, key))}/${getMaxStamina(target)}`;
   const value = getResourceValue(target, key);
   return Number.isFinite(value) ? Math.round(value) : value;
 }
