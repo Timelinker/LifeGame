@@ -1,7 +1,11 @@
 "use strict";
 
 const STORAGE_KEY = "life-idle-web-save-v1";
-const VERSION = "0.3.0-dev";
+const VERSION = "0.4.0-dev";
+const SKILL_LEVEL_CAP = 99;
+const TRAINING_TICKS_PER_MONTH = 240;
+const LEGACY_LEVEL_CAP = 10;
+const LEGACY_LEVEL_MILESTONES = [0, 1, 10, 20, 30, 40, 50, 60, 70, 85, 99];
 
 const NAV_ITEMS = [
   { id: "home", label: "首页", icon: "i-home" },
@@ -647,6 +651,20 @@ const ACHIEVEMENTS = [
   achievement("achievement_stage_master", "阶段复盘", "完成两次阶段转换", s => s.stats.stageTransitions >= 2, [effResource("knowledge", 20), effResource("happiness", 5)]),
 ];
 
+const ACHIEVEMENT_LEVEL_RULES = {
+  achievement_first_level3: { desc: "任意技能达到 20 级", condition: s => Object.values(s.skills).some(x => x.level >= 20) },
+  achievement_first_level5: { desc: "任意技能达到 40 级", condition: s => Object.values(s.skills).some(x => x.level >= 40) },
+  achievement_math_fan: { desc: "数学技能任一达到 70 级", condition: s => skillIdsByBranch("数学").some(id => getLevel(s, id) >= 70) },
+  achievement_artist: { desc: "艺术技能任一达到 40 级", condition: s => SKILLS.some(k => k.domain === "ART" && getLevel(s, k.id) >= 40) },
+  achievement_programmer: { desc: "编程入门达到 40 级", condition: s => getLevel(s, "TECH.PROGRAMMING.BASIC.001") >= 40 },
+  achievement_cross: { desc: "3 个领域各有 20 级技能", condition: s => domainCountAt(s, 20) >= 3 },
+};
+
+ACHIEVEMENTS.forEach(item => {
+  const rule = ACHIEVEMENT_LEVEL_RULES[item.id];
+  if (rule) Object.assign(item, rule);
+});
+
 const DOM = {};
 let state = null;
 let activeView = "home";
@@ -678,7 +696,7 @@ function skill(id, name, domain, branch, type, scenes, relatedAttrs, desc, unloc
     relatedAttrs,
     desc,
     unlock,
-    max: 10,
+    max: SKILL_LEVEL_CAP,
     starter: STARTER_SKILL_IDS.has(id),
     ...(SKILL_TRAINING_RULES[id] || {}),
   };
@@ -702,7 +720,7 @@ function loadContentEvents() {
     triggers: [item.trigger?.source || "manual"],
     triggerSpec: item.trigger || { source: "manual" },
     stages: item.stages || [],
-    conditions: item.conditions || [],
+    conditions: (item.conditions || []).map(normalizeRequirement),
     weight: item.repeat?.weight ?? 10,
     cooldown: item.repeat?.cooldown ?? 0,
     once: Boolean(item.repeat?.once),
@@ -800,11 +818,32 @@ function socialBonus(threshold, chance, effects, text) {
 }
 
 function boost(sourceId, targetId, thresholds, reason) {
-  return { sourceId, targetId, thresholds, reason };
+  return {
+    sourceId,
+    targetId,
+    thresholds: thresholds.map(([level, value]) => [normalizeSkillRequirementLevel(level), value]),
+    reason,
+  };
 }
 
 function reqSkill(id, level) {
-  return { type: "skill", id, level };
+  return { type: "skill", id, level: normalizeSkillRequirementLevel(level) };
+}
+
+function normalizeSkillRequirementLevel(level) {
+  const value = Math.max(0, Math.round(level || 0));
+  return value <= LEGACY_LEVEL_CAP ? LEGACY_LEVEL_MILESTONES[value] : Math.min(value, SKILL_LEVEL_CAP);
+}
+
+function normalizeRequirement(requirement) {
+  if (!requirement) return requirement;
+  if (requirement.type === "skill") {
+    return { ...requirement, level: normalizeSkillRequirementLevel(requirement.level) };
+  }
+  if (requirement.type === "anyOf") {
+    return { ...requirement, items: (requirement.items || []).map(normalizeRequirement) };
+  }
+  return requirement;
 }
 
 function reqAttr(key, value) {
@@ -856,11 +895,11 @@ function anyOf(items) {
 }
 
 function anySkillAt(level) {
-  return { type: "anySkillAt", level };
+  return { type: "anySkillAt", level: normalizeSkillRequirementLevel(level) };
 }
 
 function hasAnyNonCareerSkillLevel(level) {
-  return { type: "nonCareerSkill", level };
+  return { type: "nonCareerSkill", level: normalizeSkillRequirementLevel(level) };
 }
 
 function effResource(key, amount) {
@@ -1092,6 +1131,7 @@ function loadState() {
 
 function migrateState(loaded) {
   const fresh = createNewState();
+  const needsLevel99Migration = loaded.version !== VERSION;
   const merged = { ...fresh, ...loaded, version: VERSION };
   merged.attrs = { ...fresh.attrs, ...(loaded.attrs || {}) };
   merged.resources = { ...fresh.resources, ...(loaded.resources || {}) };
@@ -1110,11 +1150,12 @@ function migrateState(loaded) {
   merged.skills = { ...fresh.skills, ...(loaded.skills || {}) };
   SKILLS.forEach(item => {
     const record = merged.skills[item.id] || {};
+    const migratedRecord = needsLevel99Migration ? migrateLegacySkillRecord(record) : record;
     merged.skills[item.id] = {
-      level: record.level || 0,
-      xp: record.xp || 0,
-      discoveryXp: record.discoveryXp || 0,
-      unlocked: Boolean(record.unlocked),
+      level: migratedRecord.level || 0,
+      xp: migratedRecord.xp || 0,
+      discoveryXp: migratedRecord.discoveryXp || 0,
+      unlocked: Boolean(migratedRecord.unlocked),
     };
     if (loaded.version !== VERSION && !item.starter && totalSkillXp(merged.skills[item.id]) <= 0) {
       merged.skills[item.id] = { level: 0, xp: 0, discoveryXp: 0, unlocked: false };
@@ -1155,6 +1196,20 @@ function migrateState(loaded) {
   return merged;
 }
 
+function migrateLegacySkillRecord(record = {}) {
+  const oldLevel = clamp(Math.round(record.level || 0), 0, LEGACY_LEVEL_CAP);
+  if (oldLevel <= 0) return { ...record, level: 0, xp: 0 };
+  const newLevel = LEGACY_LEVEL_MILESTONES[oldLevel];
+  if (newLevel >= SKILL_LEVEL_CAP) return { ...record, level: SKILL_LEVEL_CAP, xp: 0 };
+  const oldNeed = legacyXpNeed(oldLevel);
+  const progress = clamp((record.xp || 0) / Math.max(1, oldNeed), 0, 0.999999);
+  return { ...record, level: newLevel, xp: Math.round(xpNeed(newLevel) * progress) };
+}
+
+function legacyXpNeed(level) {
+  return Math.round(100 * Math.pow(Math.max(1, level), 1.35));
+}
+
 function saveState(target = state) {
   if (!target) return;
   target.lastSeen = Date.now();
@@ -1165,6 +1220,11 @@ function processOffline() {
   const now = Date.now();
   const elapsedMs = Math.max(0, now - (state.lastSeen || now));
   if (!state.training?.skillId) return;
+  if (!canTrainSkill(state, getSkill(state.training.skillId))) {
+    state.training = null;
+    saveState();
+    return;
+  }
   const duration = getTrainingDuration(state.training.skillId);
   if (elapsedMs < duration) return;
 
@@ -1172,7 +1232,7 @@ function processOffline() {
   const fullMs = Math.min(elapsedMs, 8 * 3600000);
   const decayMs = Math.max(0, elapsedMs - 8 * 3600000) * 0.3;
   const effectiveMs = fullMs + decayMs;
-  const ticks = Math.min(240, Math.floor(effectiveMs / duration));
+  const ticks = Math.min(7200, Math.floor(effectiveMs / duration));
   const remainder = effectiveMs % duration;
   if (ticks <= 0) return;
 
@@ -1209,6 +1269,11 @@ function startRealtimeLoop() {
 
 function processTrainingTicks() {
   if (!state.training?.skillId || !isUnlocked(state, state.training.skillId)) return false;
+  if (!canTrainSkill(state, getSkill(state.training.skillId))) {
+    state.training = null;
+    saveState();
+    return true;
+  }
   const now = Date.now();
   const duration = getTrainingDuration(state.training.skillId);
   const elapsed = now - (state.training.startedAt || now);
@@ -1286,8 +1351,12 @@ function completeTrainingTick(source = "技能训练", silent = false, showGainT
   state.training.completions = (state.training.completions || 0) + 1;
   state.stats.trainingTicks = (state.stats.trainingTicks || 0) + 1;
   dispatchEventTrigger({ source: "skill", skillId, actionId: entry.action }, 1);
+  if (state.stats.trainingTicks % 60 === 0) {
+    queueEvents("resource_state", 1);
+    queueEvents("weekly_check", 1);
+  }
 
-  if (state.stats.trainingTicks % 16 === 0) {
+  if (state.stats.trainingTicks % TRAINING_TICKS_PER_MONTH === 0) {
     updateDailyTrainingStats(entry.action);
     state.day += 1;
     refreshStage(state, true);
@@ -1299,8 +1368,6 @@ function completeTrainingTick(source = "技能训练", silent = false, showGainT
       age: state.age,
       stageId: state.stageId,
     }, 1);
-    queueEvents("resource_state", 1);
-    queueEvents("weekly_check", 1);
     queueEvents("monthly_check", 1);
     queueMajorEventsForMonth(state);
   }
@@ -1327,6 +1394,11 @@ function updateDailyTrainingStats(actionId) {
 function startTraining(skillId) {
   const item = getSkill(skillId);
   if (!item) return;
+  if (getLevel(state, skillId) >= item.max) {
+    pushLog(`${item.name} 已达到 99 级精通。`);
+    render();
+    return;
+  }
   if (!isUnlocked(state, skillId)) {
     pushLog(`${item.name} 尚未解锁：${missingRequirements(item.unlock)}`);
     render();
@@ -1382,7 +1454,7 @@ function getTrainingDuration(skillId) {
     HIDDEN: 6800,
   }[item?.type] || 3600;
   const disciplineBonus = clamp((state.attrs.discipline - 40) * 12, -240, 520);
-  const levelBonus = Math.min(700, Math.max(0, record.level - 1) * 60);
+  const levelBonus = Math.min(700, Math.max(0, record.level - 1) * 8);
   return Math.max(1600, Math.round(base - disciplineBonus - levelBonus));
 }
 
@@ -1568,12 +1640,12 @@ function isCoreResource(key) {
 
 function getMaxStamina(target = state) {
   const skillBonus = [
-    ["LIFE.PLAY.ROOT.001", 5],
-    ["LIFE.PLAY.BASIC.002", 15],
-    ["LIFE.PLAY.BASIC.003", 15],
-    ["HEALTH.SPORT.BASIC.001", 25],
+    ["LIFE.PLAY.ROOT.001", 1],
+    ["LIFE.PLAY.BASIC.002", 2],
+    ["LIFE.PLAY.BASIC.003", 2],
+    ["HEALTH.SPORT.BASIC.001", 3],
   ].reduce((total, [id, perLevel]) => total + Math.max(0, getLevel(target, id) - 1) * perLevel, 0);
-  const strengthBonus = Math.max(0, getLevel(target, "HEALTH.SPORT.BRANCH.001") - 1) * 40;
+  const strengthBonus = Math.max(0, getLevel(target, "HEALTH.SPORT.BRANCH.001") - 1) * 4;
   return BASE_STAMINA_MAX + skillBonus + strengthBonus + Math.max(0, target.permanentBonuses?.staminaMax || 0);
 }
 
@@ -1692,6 +1764,7 @@ function addSkillXp(id, amount, source = "成长", boostInfo = null, options = {
     record.level += 1;
     leveled = true;
   }
+  if (record.level >= item.max) record.xp = 0;
 
   if (leveled) {
     const staminaMaxAfter = getMaxStamina(state);
@@ -1762,7 +1835,51 @@ function applyPassiveSkillGrowth(skillId, showGainToast = false) {
 }
 
 function xpNeed(level) {
-  return Math.round(100 * Math.pow(Math.max(1, level), 1.35));
+  const safeLevel = clamp(Math.round(level || 1), 1, SKILL_LEVEL_CAP - 1);
+  return Math.round(40 + 6 * safeLevel + 0.2 * safeLevel * safeLevel);
+}
+
+function getEventSkillXp(id, amount) {
+  const level = getLevel(state, id) || 1;
+  const scaled = xpNeed(level) * Math.max(0, amount || 0) / 250;
+  return Math.max(Math.round(amount || 0), Math.round(scaled));
+}
+
+function getSkillMasteryXp() {
+  let total = 0;
+  for (let level = 1; level < SKILL_LEVEL_CAP; level += 1) total += xpNeed(level);
+  return total;
+}
+
+function estimateAllSkillMasteryHours(profile = "optimized") {
+  const settings = {
+    base: { attribute: 1, status: 1, boost: 1, disciplineBonus: 0 },
+    normal: { attribute: 1.15, status: 1.03, boost: 1.35, disciplineBonus: 240 },
+    optimized: { attribute: 1.3, status: 1.05, boost: 1.6, disciplineBonus: 520 },
+  }[profile] || { attribute: 1, status: 1, boost: 1, disciplineBonus: 0 };
+
+  const totalSeconds = SKILLS.reduce((allSkillsSeconds, item) => {
+    const action = ACTIONS[getTrainingActionForSkill(item)] || ACTIONS.study;
+    const bestScene = item.scenes.reduce((best, sceneId) => Math.max(best, getSceneMultiplierForEstimate(item, sceneId)), 1);
+    const xpPerTick = Math.max(1, Math.round(action.xp * settings.attribute * bestScene * settings.status * settings.boost));
+    const baseDuration = {
+      ROOT: 2600, BASIC: 3200, BRANCH: 4200, APPLICATION: 4700,
+      PRO: 5600, PASSIVE: 5000, HIDDEN: 6800,
+    }[item.type] || 3600;
+    let skillSeconds = 0;
+    for (let level = 1; level < SKILL_LEVEL_CAP; level += 1) {
+      const levelBonus = Math.min(700, (level - 1) * 8);
+      const duration = Math.max(1600, baseDuration - settings.disciplineBonus - levelBonus);
+      skillSeconds += Math.ceil(xpNeed(level) / xpPerTick) * duration / 1000;
+    }
+    return allSkillsSeconds + skillSeconds;
+  }, 0);
+  return totalSeconds / 3600;
+}
+
+function getSceneMultiplierForEstimate(skillItem, sceneId) {
+  const scene = SCENES[sceneId] || SCENES.SCHOOL;
+  return 1.12 * (scene.modifiers[skillItem.domain] || 1);
 }
 
 function getAttributeMultiplier(skillItem) {
@@ -2152,7 +2269,7 @@ function subjectScore(target, name, skillWeights, extra = 0, maxScore = 150) {
     + (staminaRatio - 0.5) * 8
     + extra;
   const scale = maxScore / 150;
-  const score = Math.round(clamp((52 + weightedLevel * 8.6 + statusBonus) * scale, maxScore * 0.2, maxScore));
+  const score = Math.round(clamp((30 + weightedLevel * 1.8 + statusBonus) * scale, maxScore * 0.2, maxScore));
   return { name, score, maxScore, level: Number(weightedLevel.toFixed(1)) };
 }
 
@@ -2218,7 +2335,7 @@ function applyEffects(effects = [], source = "") {
         if (!isUnlocked(state, effect.id) && SKILL_DISCOVERY_THRESHOLDS[effect.id]) {
           addSkillExposure(effect.id, effect.amount, SKILL_DISCOVERY_THRESHOLDS[effect.id], source);
         } else {
-          addSkillXp(effect.id, effect.amount, source);
+          addSkillXp(effect.id, getEventSkillXp(effect.id, effect.amount), source);
         }
         break;
       case "skillExposure":
@@ -2524,7 +2641,7 @@ function renderSidebarSkills() {
           <span>${item.name}</span>
           <span class="sidebar-skill-bar"><span style="width:${pct}%"></span></span>
         </span>
-        <span class="sidebar-skill-level">Lv.${record.level}</span>
+        <span class="sidebar-skill-level">Lv.${record.level}/99</span>
         ${gain ? `<span class="sidebar-skill-gain">+${gain}</span>` : ""}
       </button>
     `;
@@ -2589,7 +2706,7 @@ function renderTrainingPanel() {
       </div>
       <div class="training-readout two-bars">
         <div class="readout-row">
-          <div class="readout-label"><span>经验</span><strong>Lv.${record.level} · ${Math.round(record.xp)}/${need} XP</strong></div>
+          <div class="readout-label"><span>经验</span><strong>Lv.${record.level}/99 · ${Math.round(record.xp)}/${need} XP</strong></div>
           <div class="training-progress-frame xp-frame">
             <div class="training-progress-fill xp-fill" style="width:${xpPct}%"></div>
           </div>
@@ -2637,10 +2754,11 @@ function renderSkills() {
 
 function renderSkillCard(item) {
   const record = state.skills[item.id];
-  const trainable = canTrainSkill(state, item);
+  const mastered = record.level >= item.max;
+  const trainable = !mastered && canTrainSkill(state, item);
   const boostInfo = getBoostInfo(item.id);
   const need = xpNeed(record.level || 1);
-  const xpPct = clamp((record.xp / need) * 100, 0, 100);
+  const xpPct = mastered ? 100 : clamp((record.xp / need) * 100, 0, 100);
   const reqText = item.desc;
   const boostText = boostInfo.parts.length
     ? `学习加速：${boostInfo.parts.map(part => `${part.sourceName} +${Math.round(part.bonus * 100)}%`).join("、")}`
@@ -2657,11 +2775,11 @@ function renderSkillCard(item) {
           <div class="skill-name">${item.name}</div>
           <div class="item-meta">${domainName(item.domain)} · ${item.branch} · ${typeName(item.type)}</div>
         </div>
-        <span class="badge ${trainable ? "" : "soft"}">${trainable ? `Lv.${record.level}` : "生活成长"}</span>
+        <span class="badge ${trainable ? "" : "soft"}">${mastered ? "Lv.99 · 精通" : `Lv.${record.level}/99${trainable ? "" : " · 生活成长"}`}</span>
       </div>
       <div class="skill-card-bars">
         <div class="compact-readout">
-          <div class="readout-label"><span>经验</span><strong>${Math.round(record.xp)}/${need}</strong></div>
+          <div class="readout-label"><span>经验</span><strong>${mastered ? "MAX" : `${Math.round(record.xp)}/${need}`}</strong></div>
           <div class="training-progress-frame compact-frame xp-frame">
             <div class="training-progress-fill xp-fill" style="width:${xpPct}%"></div>
           </div>
@@ -3136,6 +3254,7 @@ function isUnlocked(target, id) {
 
 function canTrainSkill(target, item) {
   if (!target || !item || !isUnlocked(target, item.id)) return false;
+  if (getLevel(target, item.id) >= item.max) return false;
   if (target.skillTrainingAccess?.[item.id]) return true;
   if (!item.trainableStages?.length) return true;
   return item.trainableStages.includes(target.stageId);

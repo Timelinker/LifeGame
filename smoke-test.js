@@ -36,8 +36,12 @@ const migratedState = migrateState(legacyState);
 if (isUnlocked(migratedState, "ART.CREATIVE.ROOT.001")) {
   throw new Error("legacy auto-unlocked zero-progress skill remained visible");
 }
-if (!isUnlocked(migratedState, "LIFE.SOCIAL.ROOT.001") || getLevel(migratedState, "LIFE.SOCIAL.ROOT.001") !== 2) {
+if (!isUnlocked(migratedState, "LIFE.SOCIAL.ROOT.001") || getLevel(migratedState, "LIFE.SOCIAL.ROOT.001") !== 10) {
   throw new Error("legacy practiced skill was not preserved during migration");
+}
+const expectedMigratedXp = Math.round(xpNeed(10) * 5 / legacyXpNeed(2));
+if (migratedState.skills["LIFE.SOCIAL.ROOT.001"].xp !== expectedMigratedXp) {
+  throw new Error("legacy fractional skill progress was not preserved");
 }
 const contentIssues = validateGameContent();
 if (contentIssues.length) {
@@ -79,12 +83,12 @@ if (tickXp <= 0 || mathAfterTick <= mathBefore) {
   throw new Error("training tick did not add math XP");
 }
 
-for (let i = 0; i < 32; i += 1) completeTrainingTick("smoke-training", true);
+for (let i = 0; i < TRAINING_TICKS_PER_MONTH; i += 1) completeTrainingTick("smoke-training", true);
 const mathAfterTraining = totalSkillXp(state.skills["KNOWLEDGE.MATH.ROOT.001"]);
 if (mathAfterTraining <= mathAfterTick) {
   throw new Error("training loop did not keep adding math XP");
 }
-if (state.day <= 1 || state.stats.studyStreak < 2) {
+if (state.day <= 1 || state.stats.studyStreak < 1) {
   throw new Error("training loop did not advance day or study streak");
 }
 
@@ -140,6 +144,14 @@ if (gaokao.track !== "science" || gaokao.subjects.length !== 6 || !gaokao.subjec
 }
 if (gaokao.total <= 0 || gaokao.total > 750) {
   throw new Error("gaokao total score was out of range: " + gaokao.total);
+}
+const preparedExamState = JSON.parse(JSON.stringify(state));
+Object.values(preparedExamState.skills).forEach(record => { record.level = 50; record.xp = 0; record.unlocked = true; });
+const preparedGaokao = calculateGaokaoScore(preparedExamState);
+Object.values(preparedExamState.skills).forEach(record => { record.level = 80; });
+const expertGaokao = calculateGaokaoScore(preparedExamState);
+if (preparedGaokao.total < 500 || preparedGaokao.total > 700 || expertGaokao.total <= preparedGaokao.total) {
+  throw new Error("level 99 gaokao scaling was not calibrated: " + preparedGaokao.total + "/" + expertGaokao.total);
 }
 
 const staminaBeforeSocial = state.resources.stamina;
@@ -204,10 +216,10 @@ applyEffects([effSkill(basketballId, 75)], "球场事件");
 const staminaMaxBeforeBasketball = getMaxStamina(state);
 const staminaBeforeBasketballLevel = state.resources.stamina;
 addSkillXp(basketballId, 25, "篮球训练", null, { toast: false });
-if (getMaxStamina(state) - staminaMaxBeforeBasketball !== 15) {
-  throw new Error("basketball level did not add 15 stamina max");
+if (getMaxStamina(state) - staminaMaxBeforeBasketball !== 2) {
+  throw new Error("basketball level did not add 2 stamina max");
 }
-if (state.resources.stamina - staminaBeforeBasketballLevel !== 15) {
+if (state.resources.stamina - staminaBeforeBasketballLevel !== 2) {
   throw new Error("stamina did not rise with the new stamina maximum");
 }
 if (!String(getDisplayResourceValue("stamina")).includes("/")) {
@@ -252,6 +264,36 @@ activeToasts.clear();
 
 checkAchievements();
 checkUnlocks(state);
+if (SKILLS.some(item => item.max !== 99) || getSkillMasteryXp() !== 96736) {
+  throw new Error("level 99 skill curve was not applied consistently");
+}
+const optimizedMasteryHours = estimateAllSkillMasteryHours("optimized");
+const normalMasteryHours = estimateAllSkillMasteryHours("normal");
+if (optimizedMasteryHours < 100) {
+  throw new Error("optimized all-skill mastery fell below 100 hours: " + optimizedMasteryHours.toFixed(1));
+}
+if (normalMasteryHours < optimizedMasteryHours) {
+  throw new Error("normal mastery estimate was faster than optimized estimate");
+}
+const eventScalingLevel = state.skills["KNOWLEDGE.MATH.ROOT.001"].level;
+state.skills["KNOWLEDGE.MATH.ROOT.001"].level = 80;
+if (getEventSkillXp("KNOWLEDGE.MATH.ROOT.001", 30) <= 30) {
+  throw new Error("late-game event skill XP did not scale with the current level");
+}
+state.skills["KNOWLEDGE.MATH.ROOT.001"].level = eventScalingLevel;
+const gameplayState = state;
+state = createNewState();
+const masterySkillId = "KNOWLEDGE.MATH.ROOT.001";
+state.skills[masterySkillId] = { level: 98, xp: xpNeed(98) - 1, discoveryXp: 0, unlocked: true };
+state.training = { skillId: masterySkillId, startedAt: Date.now(), duration: getTrainingDuration(masterySkillId), completions: 0 };
+completeTrainingTick("mastery-smoke", true);
+if (getLevel(state, masterySkillId) !== 99 || state.skills[masterySkillId].xp !== 0) {
+  throw new Error("skill did not stop cleanly at level 99");
+}
+if (!processTrainingTicks() || state.training !== null) {
+  throw new Error("mastered skill training was not cleared safely");
+}
+state = gameplayState;
 console.log(JSON.stringify({
   skills: SKILLS.length,
   events: EVENTS.length,
@@ -280,6 +322,8 @@ console.log(JSON.stringify({
   morality: state.resources.morality,
   inventoryItems: Object.keys(state.inventory).length,
   aggregatedToastCount: DOM.toastStack.children.length,
+  optimizedMasteryHours: Number(optimizedMasteryHours.toFixed(1)),
+  normalMasteryHours: Number(normalMasteryHours.toFixed(1)),
   activeSocialAction: state.social.action,
   lastSettlement: state.lastSettlement,
   logs: state.logs.length
